@@ -12,3 +12,39 @@
 # Compiled binary files
 *.exe
 *.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Linker files
+*.ilk
+*.map
+*.exp
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/

@@ -1,0 +1,41 @@
+cmake_minimum_required(VERSION 3.10)
+project(NavigationVI)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find OpenCV
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+# Find ZBar
+# On Linux, pkg-config is the easiest way
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ZBAR REQUIRED zbar)
+include_directories(${ZBAR_INCLUDE_DIRS})
+link_directories(${ZBAR_LIBRARY_DIRS})
+
+# Source Files
+add_executable(navigation
+    main.cpp
+    core/AppController.cpp
+    core/UIManager.cpp
+    modules/QRDetector.cpp
+    modules/QRReader.cpp
+    modules/CoordinateMapSystem.cpp
+    modules/RouteGuidance.cpp
+)
+
+# Link Libraries
+target_link_libraries(navigation
+    ${OpenCV_LIBS}
+    ${ZBAR_LIBRARIES}
+)
+
+# Windows Note
+# If pkg-config is not available on Windows, manually set:
+# set(ZBAR_INCLUDE_DIRS "C:/path/to/zbar/include")
+# set(ZBAR_LIBRARIES "C:/path/to/zbar/lib/zbar.lib")
+# include_directories(${ZBAR_INCLUDE_DIRS})
+# target_link_libraries(navigation ${OpenCV_LIBS} ${ZBAR_LIBRARIES})
+
