@@ -1,0 +1,109 @@
+# ---------- Classroom Connections ----------
+N007|N006|corridor
+N006|N005|corridor
+N005|N004|corridor
+N004|N003|corridor
+N003|N002|corridor
+N002|N001|corridor
+
+# ---------- Lab Connections ----------
+N009|N010|corridor
+N010|N011|corridor
+N011|N012|corridor
+
+# ---------- Corridor Junctions ----------
+JUNC_LEFT|N007|corridor
+JUNC_LEFT|N008|corridor
+
+JUNC_MID|N004|corridor
+JUNC_MID|N003|corridor
+JUNC_MID|N010|corridor
+JUNC_MID|N011|corridor
+
+JUNC_RIGHT|NGT1|corridor
+JUNC_RIGHT|N001|corridor
+
+# ---------- Toilets ----------
+N008|NGT3|corridor
+NGT3|NGT4|corridor
+NGT4|NGT5|corridor
+NGT2|N002|corridor
+N012|NGT1|corridor
+NGT1|NGT2|corridor
+
+# ---------- Entrances ----------
+ENTRANCE_MAIN|JUNC_MID|entrance
+
+# ---- Staffrooms NG-001..NG-014 (reverse order) ----
+NG-014|NG-013|corridor
+NG-013|NG-012|corridor
+NG-012|NG-011|corridor
+NG-011|NG-010|corridor
+NG-010|NG-009|corridor
+NG-009|NG-008|corridor
+NG-008|NG-007|corridor
+NG-007|NG-006|corridor
+NG-006|NG-005|corridor
+NG-005|NG-004|corridor
+NG-004|NG-003|corridor
+NG-003|NG-002|corridor
+NG-002|NG-001|corridor
+
+# ---- Staffrooms NG-015..NG-023 (positions reversed: 15 on the right, 23 on the left) ----
+NG-015|NG-016|corridor
+NG-016|NG-017|corridor
+NG-017|NG-018|corridor
+NG-018|NG-019|corridor
+NG-019|NG-020|corridor
+NG-020|NG-021|corridor
+NG-021|NG-022|corridor
+NG-022|NG-023|corridor
+
+# ---- NG-024..NG-030 precise L-shape ----
+NG-024|NG-025|corridor
+NG-025|NG-026|corridor
+NG-026|NG-027|corridor
+NG-024|NG-023|corridor
+NG-027|NG-029|corridor
+NG-028|NG-030|corridor
+
+# ---- NG-031..NG-043 : bottom row (keep standard left→right) ----
+NG-031|NG-032|corridor
+NG-032|NG-033|corridor
+NG-033|NG-034|corridor
+NG-034|NG-035|corridor
+NG-035|NG-036|corridor
+NG-036|NG-037|corridor
+NG-037|NG-038|corridor
+NG-038|NG-039|corridor
+NG-039|NG-040|corridor
+NG-040|NG-041|corridor
+NG-041|NG-042|corridor
+NG-042|NG-043|corridor
+
+# ---- NG-052..NG-044 : SAME ROW AS NG-030, placed to the RIGHT in DESCENDING IDs ----
+NG-052|NG-051|corridor
+NG-051|NG-050|corridor
+NG-050|NG-049|corridor
+NG-049|NG-048|corridor
+NG-048|NG-047|corridor
+NG-047|NG-046|corridor
+NG-046|NG-045|corridor
+NG-045|NG-044|corridor
+NG-030|NG-052|corridor
+
+# ---- Toilets NGT6 / NGT7 — positioned so L/R are from geometry ----
+NGT6|NG-010|corridor
+NGT7|NG-011|corridor
+NGT6|NGT7|corridor
+NGT6|NG-022|corridor
+
+# ── Staircases (replace your existing staircase block with this) ──
+STAIR_L|NG-052|corridor
+STAIR_R|NG-044|corridor
+
+# ---- BRIDGE: main building ↔ staffroom wing via LEFT_JUNCTION ----
+JUNC_LEFT|NG-001|corridor
+JUNC_LEFT|NG-015|corridor
+JUNC_LEFT|NG-044|corridor
+JUNC_LEFT|NG-043|corridor

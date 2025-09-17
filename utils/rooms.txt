@@ -1,0 +1,100 @@
+# ---------- Classrooms ----------
+N007|Open-Office Style Classroom|CLASSROOM|20|80|20|15
+N006|Classroom N006|CLASSROOM|45|80|20|15
+N005|Classroom N005|CLASSROOM|70|80|20|15
+N004|Classroom N004|CLASSROOM|95|80|20|15
+N003|Classroom N003|CLASSROOM|120|80|20|15
+N002|Classroom N002|CLASSROOM|145|80|20|15
+N001|Classroom N001|CLASSROOM|170|80|20|15
+
+# ---------- Laboratories ----------
+N008|Microsoft Software Engineering Laboratory|LABORATORY|20|40|20|15
+N009|Silverlab|LABORATORY|95|40|20|15
+N010|Cisco Networking Academy Laboratory|LABORATORY|120|40|20|15
+N011|IPSR Lab|LABORATORY|145|40|20|15
+N012|Lab N012|LABORATORY|170|40|20|15
+
+# ---------- Toilets ----------
+NGT1|Female Toilet|TOILET|195|40|8|8
+NGT2|Ladies Toilet|TOILET|205|40|8|8
+NGT3|Disabled Toilet|TOILET|45|40|8|8
+NGT4|Male Toilet|TOILET|70|40|8|8
+NGT5|Female Toilet|TOILET|80|40|8|8
+
+# ---------- Entrances ----------
+ENTRANCE_MAIN|Main Entrance|ENTRANCE|95|90|10|6
+
+# ---------- Junctions ----------
+JUNC_LEFT|Left Junction|CORRIDOR|15|65|4|4
+JUNC_MID|Middle Junction|CORRIDOR|95|65|4|4
+JUNC_RIGHT|Right Junction|CORRIDOR|215|65|4|4
+
+# ---------- Staffrooms NG-001..NG-014 (reverse order) ----------
+NG-001|Staffroom NG-001|OFFICE|15|120|14|14
+NG-002|Staffroom NG-002|OFFICE|30|120|14|14
+NG-003|Staffroom NG-003|OFFICE|45|120|14|14
+NG-004|Staffroom NG-004|OFFICE|60|120|14|14
+NG-005|Staffroom NG-005|OFFICE|75|120|14|14
+NG-006|Staffroom NG-006|OFFICE|90|120|14|14
+NG-007|Staffroom NG-007|OFFICE|105|120|14|14
+NG-008|Staffroom NG-008|OFFICE|120|120|14|14
+NG-009|Staffroom NG-009|OFFICE|135|120|14|14
+NG-010|Staffroom NG-010|OFFICE|150|120|14|14
+NG-011|Staffroom NG-011|OFFICE|165|120|14|14
+NG-012|Staffroom NG-012|OFFICE|180|120|14|14
+NG-013|Staffroom NG-013|OFFICE|195|120|14|14
+NG-014|Staffroom NG-014|OFFICE|210|120|14|14
+
+# ---------- Staffrooms NG-015..NG-023 (positions reversed: 15 on the right, 23 on the left) ----------
+NG-015|Staffroom NG-015|OFFICE|135|90|14|14
+NG-016|Staffroom NG-016|OFFICE|120|90|14|14
+NG-017|Staffroom NG-017|OFFICE|105|90|14|14
+NG-018|Staffroom NG-018|OFFICE|90|90|14|14
+NG-019|Staffroom NG-019|OFFICE|75|90|14|14
+NG-020|Staffroom NG-020|OFFICE|60|90|14|14
+NG-021|Staffroom NG-021|OFFICE|45|90|14|14
+NG-022|Staffroom NG-022|OFFICE|30|90|14|14
+NG-023|Staffroom NG-023|OFFICE|15|90|14|14
+
+# ---------- NG-024..NG-030 precise L-shape ----------
+NG-024|Staffroom NG-024|OFFICE|-13|90|14|14
+NG-025|Staffroom NG-025|OFFICE|-13|78|14|14
+NG-026|Staffroom NG-026|OFFICE|-13|66|14|14
+NG-027|Staffroom NG-027|OFFICE|-13|54|14|14
+NG-028|Staffroom NG-028|OFFICE|-13|42|14|14
+NG-029|Staffroom NG-029|OFFICE|9|54|14|14
+NG-030|Staffroom NG-030|OFFICE|9|42|14|14
+
+# ---------- NG-031..NG-043 : bottom row (keep standard left→right) ----------
+NG-031|Staffroom NG-031|OFFICE|15|60|14|14
+NG-032|Staffroom NG-032|OFFICE|30|60|14|14
+NG-033|Staffroom NG-033|OFFICE|45|60|14|14
+NG-034|Staffroom NG-034|OFFICE|60|60|14|14
+NG-035|Staffroom NG-035|OFFICE|75|60|14|14
+NG-036|Staffroom NG-036|OFFICE|90|60|14|14
+NG-037|Staffroom NG-037|OFFICE|105|60|14|14
+NG-038|Staffroom NG-038|OFFICE|120|60|14|14
+NG-039|Staffroom NG-039|OFFICE|135|60|14|14
+NG-040|Staffroom NG-040|OFFICE|150|60|14|14
+NG-041|Staffroom NG-041|OFFICE|165|60|14|14
+NG-042|Staffroom NG-042|OFFICE|180|60|14|14
+NG-043|Staffroom NG-043|OFFICE|195|60|14|14
+
+# ---------- NG-052..NG-044 : SAME ROW AS NG-030, placed to the RIGHT in DESCENDING IDs ----------
+NG-052|Staffroom NG-002|OFFICE|24|42|14|14
+NG-051|Staffroom NG-003|OFFICE|39|42|14|14
+NG-050|Staffroom NG-004|OFFICE|54|42|14|14
+NG-049|Staffroom NG-005|OFFICE|69|42|14|14
+NG-048|Staffroom NG-006|OFFICE|84|42|14|14
+NG-047|Staffroom NG-007|OFFICE|99|42|14|14
+NG-046|Staffroom NG-008|OFFICE|114|42|14|14
+NG-045|Staffroom NG-009|OFFICE|129|42|14|14
+NG-044|Staffroom NG-010|OFFICE|144|42|14|14
+
+# ---------- Toilets NGT6 / NGT7 — positioned so L/R are from geometry ----------
+NGT7|Male Toilet NG|TOILET|10|90|10|10
+NGT6|Female Toilet NG|TOILET|20|90|10|10
+
+# ---------- Staircases (replace your existing staircase block with this) ----------
+STAIR_L|Staircase Left|STAIRCASE|-15|115|12|20
+STAIR_R|Staircase Right|STAIRCASE|150|115|12|20
