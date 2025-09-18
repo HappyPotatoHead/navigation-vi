@@ -5,7 +5,6 @@
 #include <vector>
 
 namespace NavigationVI{
-
     static inline bool tooSmall(const cv::Mat& img, int minSide=8){
         return img.empty() || img.cols < minSide || img.rows < minSide;
     }
@@ -187,20 +186,3 @@ namespace NavigationVI{
         return "";
     }
 }
-
-
-        // if (imageBGR.empty() || imageBGR.cols <= 1 || imageBGR.rows <= 1) {
-        //     std::cout << "Invalid or empty image passed to QRReader." << std::endl;
-        //     return "";
-        // }
-
-
-
-        // cv::Mat corrected{ perspectiveCorrection(gray) };
-        // cv::Mat upscaled{ applyUpscaling(corrected) };
-        // result = decodeQR(upscaled, scanner, "upscaled image");
-        // if (!result.empty()) return result;
-
-        // cv::Mat thresholded{ thresholdImage(upscaled) };
-        // result = decodeQR(thresholded, scanner, "thresholded image");
-        // if(!result.empty()) return result;

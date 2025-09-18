@@ -204,12 +204,6 @@ namespace NavigationVI{
                 std::cerr << "robustDetectInROI detect error: " << e.what() << std::endl;
                 return false;
             }
-            // if (decode) {
-            //     data = qrd.detectAndDecode(img, pts);
-            // } else {
-            //     bool found{ qrd.detect(img, pts) };
-            //     if (!found) return false;
-            // }
 
             if (pts.size() == 4) {
                 std::vector<cv::Point2f> corners{};
@@ -223,19 +217,12 @@ namespace NavigationVI{
                 }
                 if(!polygonIsSane(corners)) return false;
 
-                // cv::Rect local{ cv::boundingRect(pts) };
                 cv::Rect paddedBox{ bboxFromCorners(corners, 20, frame.size()) };
-                // cv::Rect paddedBox{ padRect(local, 20, roiBGR.size()) };
                 if(!minRoiOk(paddedBox, 16)) return false;
 
                 result.corners = std::move(corners);
                 result.bbox = paddedBox;
 
-                // paddedBox.x += padded.x;
-                // paddedBox.y += padded.y;
-                // paddedBox &= cv::Rect{ 0, 0, frame.cols, frame.rows };
-
-                // result.bbox = paddedBox;
                 result.content = decode ? data : std::string{};
                 result.found = decode ? (!data.empty()) : true;
                 return result.found;
@@ -336,10 +323,6 @@ namespace NavigationVI{
 
             if(!minRoiOk(box, 16)) continue;
             if (m_colourVerifyEnabled && !verifyColourInROI(frame, box, m_targetColour)) continue;
-
-            // cv::Rect box{ det.bbox.area() > 0 ? det.bbox : roi };
-            // cv::Rect tight{ padRect(box, 0, frame.size()) };
-            // if (!verifyColourInROI(frame, box, m_targetColour)) continue;
 
             QRCode qr{};
             qr.position = cv::Point2f{
