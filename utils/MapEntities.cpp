@@ -1,4 +1,5 @@
 #include "MapEntities.h"
+
 #include <string>
 #include <unordered_set>
 

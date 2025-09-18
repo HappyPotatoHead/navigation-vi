@@ -1,14 +1,13 @@
 #include "QRDetector.h"
+
 #include <algorithm>
 #include <cmath>
 
 namespace NavigationVI{
-    // Minimum ROI side
     static inline bool minRoiOk(const cv::Rect& r, int minSide = 16) {
         return r.width >= minSide && r.height >= minSide;
     }
 
-    // Sanity check on 4-point polygon
     static inline bool polygonIsSane(const std::vector<cv::Point2f>& pts) {
         if (pts.size() != 4) return false;
 
@@ -31,7 +30,6 @@ namespace NavigationVI{
         return true;
     }
 
-    // Build padded, clamped bbox from polygon in frame space
     static inline cv::Rect bboxFromCorners(const std::vector<cv::Point2f>& corners,
                                         int pad,
                                         const cv::Size& frameSize) {
@@ -79,7 +77,8 @@ namespace NavigationVI{
             }
         };
       }
-    //   Destructor is not needed
+    
+      //   Destructor is not needed
 
     bool QRDetector::initialise(int cameraIndex){
         m_camera.open(cameraIndex);
@@ -176,9 +175,9 @@ namespace NavigationVI{
         const cv::Mat& frame,
         const cv::Rect& roi,
         bool tryDecode) const {
+            
         DetectResult out{};
 
-        // Pad ROI generously before detection
         cv::Rect padded{ padRect(roi, m_bbboxPadding, frame.size()) };
         padded &= cv::Rect{ 0, 0, frame.cols, frame.rows };
         if (padded.width < 2 || padded.height < 2) return out;

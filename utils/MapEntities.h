@@ -1,10 +1,12 @@
 #pragma once
+
 #include <string>
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
 #include <optional>
 #include <stdexcept>
+
 #include "Geometry.h"
 
 namespace NavigationVI{

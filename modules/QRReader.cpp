@@ -1,4 +1,5 @@
 #include "QRReader.h"
+
 #include <string>
 #include <iostream>
 #include <algorithm>
@@ -48,14 +49,6 @@ namespace NavigationVI{
                 {static_cast<float>(outSide - 1), static_cast<float>(outSide - 1)},
                 {0.0f, static_cast<float>(outSide - 1)},
             };
-            // std::vector<cv::Point2f> dstPoints {
-            //     {
-            //         cv::Point2f(0, 0),
-            //         cv::Point2f(side - 1, 0),
-            //         cv::Point2f(side - 1, side - 1),
-            //         cv::Point2f(0, side - 1),
-            //     }
-            // };
             cv::Mat M{};
             try{
                 M = cv::getPerspectiveTransform(points, dstPoints);
@@ -64,7 +57,6 @@ namespace NavigationVI{
                 return image;
             }
 
-            // cv::Mat M{ cv::getPerspectiveTransform(points, dstPoints) };
             cv::Mat warped{};
             try{
                 cv::warpPerspective(image, warped, M, cv::Size{outSide, outSide});
@@ -82,8 +74,6 @@ namespace NavigationVI{
         for(const auto& symbol : zbarResults){
             std::string msg = "QR detected: " + symbol.get_data();
             std::cout << msg << std::endl;
-            // std::cout << "Data: " << symbol.get_data() << std::endl;
-            // std::cout << "Type: " << symbol.get_type_name() << std::endl;
             if (onMessage) onMessage(msg);
             data = symbol.get_data();
         }

@@ -1,10 +1,11 @@
 #pragma once
-#include <opencv2/opencv.hpp>
-#include <zbar.h>
+
 #include <string>
 #include <vector>
-
 #include <functional>
+
+#include <opencv2/opencv.hpp>
+#include <zbar.h>
 
 namespace NavigationVI {
     class QRReader{

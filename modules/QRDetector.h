@@ -1,10 +1,13 @@
 #pragma once
-#include <opencv2/opencv.hpp>
+
 #include <string>
 #include <vector>
 #include <optional>
 #include <map>
 #include <chrono>
+
+#include <opencv2/opencv.hpp>
+
 #include "../utils/QRCode.h"
 
 namespace NavigationVI{
@@ -55,7 +58,8 @@ namespace NavigationVI{
             int m_detectionIntervalFrames{ 5 };
             int m_minDetectionGapMs{ 500 };
             int m_frameSkipCounter{ 0 };
-            std::chrono::steady_clock::time_point m_lastDetectionTime;
+
+            std::chrono::steady_clock::time_point m_lastDetectionTime{};
 
             std::map<QRColour, std::vector<HSVRange>> m_colourRanges{};
 

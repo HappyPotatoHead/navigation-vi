@@ -1,9 +1,9 @@
-#include <cmath>
 #include "Geometry.h"
+
+#include <cmath>
 
 namespace NavigationVI{
 
-    // Point::Point(const float x, const float y) : m_x(x), m_y(y){}
     float Point::distanceTo(const Point& other) const{
         return std::hypot(m_x - other.m_x, m_y - other.m_y);
     }
@@ -29,4 +29,4 @@ namespace NavigationVI{
             (m_y + m_height < m_y) || (m_y + m_height < m_y) 
         );
     }
-} // namespace NavigationVI
+} 
