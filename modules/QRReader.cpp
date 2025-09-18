@@ -80,8 +80,11 @@ namespace NavigationVI{
     std::string QRReader::printResult(const std::vector<zbar::Symbol>& zbarResults) const{
         std::string data{};
         for(const auto& symbol : zbarResults){
-            std::cout << "Data: " << symbol.get_data() << std::endl;
-            std::cout << "Type: " << symbol.get_type_name() << std::endl;
+            std::string msg = "QR detected: " + symbol.get_data();
+            std::cout << msg << std::endl;
+            // std::cout << "Data: " << symbol.get_data() << std::endl;
+            // std::cout << "Type: " << symbol.get_type_name() << std::endl;
+            if (onMessage) onMessage(msg);
             data = symbol.get_data();
         }
         return data;
@@ -183,6 +186,7 @@ namespace NavigationVI{
         }
 
         std::cout << "\nZBar: No QR code detected" << std::endl;
+        // if (onMessage) onMessage("No QR code detected");
         return "";
     }
 }

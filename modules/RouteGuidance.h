@@ -4,6 +4,7 @@
 #include <map>
 #include <set>
 #include <optional>
+#include <functional>
 
 #include "../utils/MapEntities.h"
 #include "../utils/RouteTypes.h"
@@ -35,6 +36,8 @@ namespace NavigationVI{
             );
         
         double estimateStrideFromHeightCm(double height_cm) const; 
+    public:
+        std::function<void(const std::string&)> onMessage{};
     
     private:
         std::pair<double, double> pointSegmentDistance(const Point& p, const Point& a, const Point& b) const;

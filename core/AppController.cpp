@@ -1,21 +1,64 @@
-#include "AppController.h"
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <algorithm>
 
+#include "AppController.h"
+#include "../modules/TextToSpeech.h"
+
+#include <thread>
+#include <mutex>
+#include <queue>
+#include <condition_variable>
+#include <atomic>
+
+struct TTSItem{
+    std::string text{};
+    enum class Type{ Nav, Announce } type;
+};
+
 using namespace NavigationVI;
+
+std::queue<cv::Mat> frameQueue{};
+std::mutex frameMutex{};
+std::condition_variable frameCV{};
+
+std::queue<TTSItem> ttsQueue{};
+std::mutex ttsMutex{};
+std::condition_variable ttsCV{};
+
+std::atomic<bool> running{ true };
+
+std::mutex stateMutex{};
+cv::Rect lastBBox{};
+std::string lastInstruction{};
+
+std::mutex speechMutex{};
+std::condition_variable speechCV{};
+std::chrono::steady_clock::time_point lastSpeechEndTime{ std::chrono::steady_clock::now() };
+bool speechFinished{ false };
+int navCompletedCount{ 0 };
+
+std::atomic<bool> navSpeaking{ false };
+std::atomic<bool> routeReset{ false };
+
+TextToSpeech tts;
 
 AppController::AppController()
     : mapSystem("FICT Building", "Ground Floor")
     , ui("Navigation View", false)
-    , currentStepIndex(0) {}
+    , currentStepIndex(0),
+     m_firstStepAfterQR(true){
+
+        reader.onMessage = [&](const std::string& msg){
+            return; 
+        };
+
+        guider.onMessage = [&](const std::string& msg){
+            (void) msg;
+        };
+    }
 
 void AppController::handleNewQR(const std::string& content) {
-    lastQRData = content;
-    auto resolvedStart{ mapSystem.resolveRoomId(content) };
-    if (resolvedStart) lastRoomName = mapSystem.getRooms().at(resolvedStart.value()).m_name;
-    else lastRoomName = content + " (unknown)";
-
     auto [instrs, summary]{ 
         guider.pathToInstructions(
         mapSystem,
@@ -27,13 +70,129 @@ void AppController::handleNewQR(const std::string& content) {
         20.0,
         true
     )};
+    routeReset = true;
+    std::lock_guard<std::mutex> lock(stateMutex);
+    lastQRData = content;
+
+    if (auto resolvedStart = mapSystem.resolveRoomId(content))
+        lastRoomName = mapSystem.getRooms().at(resolvedStart.value()).m_name;
+    else lastRoomName = content + " (unknown)";
 
     currentInstructions = instrs;
     currentStepIndex = 0;
     lastStepTime = std::chrono::steady_clock::now();
+    currentSuggestion = currentInstructions.empty() ? std::string("No path found.") : currentInstructions[0].text;
+    m_firstStepAfterQR = true;
+    {
+        std::lock_guard<std::mutex> slock(speechMutex);
+        lastSpeechEndTime = std::chrono::steady_clock::now();
+    }
+    navSpeaking = false;
+    // lastSpokenSuggestion.clear();
+}
 
-    if (!currentInstructions.empty()) currentSuggestion = currentInstructions[0].text;
-    else currentSuggestion = "No path found.";
+void AppController::ttsWorker(TextToSpeech& tts) {
+    while (running) {
+        std::unique_lock<std::mutex> lock(ttsMutex);
+        ttsCV.wait(lock, [] { return !ttsQueue.empty() || !running; });
+        if (!running) break;
+        TTSItem item{ std::move(ttsQueue.front()) };
+        // auto msg{ std::move(ttsQueue.front()) };
+        ttsQueue.pop();
+        lock.unlock();
+
+        tts.speak(item.text);
+        if (item.type == TTSItem::Type::Nav) {
+            std::lock_guard<std::mutex> slock(speechMutex);
+            lastSpeechEndTime = std::chrono::steady_clock::now();
+            navSpeaking = false;
+            // ++navCompletedCount;
+            // speechCV.notify_all();
+            // speechFinished = true;
+        }
+        // speechCV.notify_one();
+    }
+}
+
+void AppController::detectionWorker(QRDetector& detector, QRReader& reader, RouteGuidance& guider) {
+    while (running) {
+        cv::Mat frame;
+        {
+            std::unique_lock<std::mutex> lock(frameMutex);
+            frameCV.wait(lock, [] { return !frameQueue.empty() || !running; });
+            if (!running) break;
+            frame = frameQueue.front().clone();
+            frameQueue.pop();
+        }
+
+        auto codes   = detector.detectQRCodes(frame, false);
+        auto nearest = detector.findNearestQRCode(codes);
+
+        if (nearest) {
+            cv::Mat qrROI;
+            if (!nearest->corners.empty() && nearest->corners.size() == 4) {
+                double side = 0.0;
+                for (int i = 0; i < 4; ++i) {
+                    double dist = cv::norm(nearest->corners[i] - nearest->corners[(i + 1) % 4]);
+                    side = std::max(side, dist);
+                }
+                int outSide = static_cast<int>(std::clamp(side, 16.0, 1024.0));
+                std::vector<cv::Point2f> dst{
+                    {0, 0},
+                    {static_cast<float>(outSide - 1), 0},
+                    {static_cast<float>(outSide - 1), static_cast<float>(outSide - 1)},
+                    {0, static_cast<float>(outSide - 1)}
+                };
+                cv::Mat M = cv::getPerspectiveTransform(nearest->corners, dst);
+                cv::warpPerspective(frame, qrROI, M, cv::Size(outSide, outSide));
+            } else {
+                cv::Rect roi = nearest->bbox & cv::Rect(0, 0, frame.cols, frame.rows);
+                if (roi.width > 0 && roi.height > 0) qrROI = frame(roi).clone();
+            }
+
+            if (!qrROI.empty()) {
+                std::string content = reader.reader(qrROI);
+                if (!content.empty()) {
+                    auto trim = [](std::string &s) {
+                        s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+                            [](unsigned char ch){ return !std::isspace(ch); }));
+                    s.erase(std::find_if(s.rbegin(), s.rend(),
+                        [](unsigned char ch){ return !std::isspace(ch); }).base(), s.end());
+                    };
+                    trim(content);
+                    std::transform(content.begin(), content.end(), content.begin(),
+                                   [](unsigned char c){ return std::toupper(c); });
+
+                    // Only update route if QR changed
+                    {
+                        std::lock_guard<std::mutex> lock(stateMutex);
+                        if (content != lastQRData) {
+                            // Release lock while computing route to avoid long hold
+                        }
+                    }
+                    if (content != lastQRData) {
+                        handleNewQR(content);
+                        // Optional: speak QR detection once per new QR
+                        std::lock_guard<std::mutex> lock(ttsMutex);
+                        ttsQueue.push(TTSItem{"QR detected: " + content, TTSItem::Type::Announce });
+                        ttsCV.notify_one();
+                    }
+                }
+            }
+
+            if (detector.shouldAttemptDetection()) {
+                auto cmd = detector.getNavigationToQR(*nearest, frame.size());
+                // Update overlay state only (no nav TTS here)
+                std::lock_guard<std::mutex> lock(stateMutex);
+                lastInstruction = cmd.instruction;
+                lastBBox = nearest->bbox;
+            }
+        } else {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            lastInstruction.clear();
+            lastBBox = cv::Rect();
+        }
+    }
 }
 
 void AppController::run() {
@@ -94,81 +253,138 @@ void AppController::run() {
         return;
     }
 
+    // Start workers
+    std::thread ttsThread(&AppController::ttsWorker, this, std::ref(tts));
+    std::thread detectThread(&AppController::detectionWorker, this, std::ref(detector), std::ref(reader), std::ref(guider));
+
     cv::Mat frame{};
+    std::string lastSpokenSuggestion{};
+
+    auto speakDelayFirst{ std::chrono::seconds(3) };
+    auto speakDelayRest{ std::chrono::seconds(8) };
+
+    if (routeReset){ lastSpokenSuggestion.clear(); routeReset = false;}
+
     while (true) {
         if (!cap.read(frame) || frame.empty()) break;
         cv::flip(frame, frame, 1);
-
-        auto codes{ detector.detectQRCodes(frame, false) };
-        auto nearest{ detector.findNearestQRCode(codes) };
-
-        cv::Mat qrROI{};
-        if (nearest) {
-            if (!nearest->corners.empty() && nearest->corners.size() == 4) {
-                double side{ 0.0f };
-                for (int i = 0; i < 4; i++) {
-                    double dist{ cv::norm(nearest->corners[i] - nearest->corners[(i + 1) % 4]) };
-                    side = std::max(side, dist);
-                }
-                int outSide{ static_cast<int>(std::clamp(side, 16.0, 1024.0)) };
-                std::vector<cv::Point2f> dst{
-                    {0, 0},
-                    {static_cast<float>(outSide - 1), 0},
-                    {static_cast<float>(outSide - 1), static_cast<float>(outSide - 1)},
-                    {0, static_cast<float>(outSide - 1)}
-                };
-                cv::Mat M{ cv::getPerspectiveTransform(nearest->corners, dst) };
-                cv::warpPerspective(frame, qrROI, M, cv::Size(outSide, outSide));
-            } else {
-                cv::Rect roi{ nearest->bbox & cv::Rect(0, 0, frame.cols, frame.rows) };
-                if (roi.width > 0 && roi.height > 0) qrROI = frame(roi).clone();
-            }
-
-            if (!qrROI.empty()) {
-                std::string content{ reader.reader(qrROI) };
-                if (!content.empty()) {
-                    auto trim{ [](std::string &s) {
-                        s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-                            [](unsigned char ch){ return !std::isspace(ch); }));
-                        s.erase(std::find_if(s.rbegin(), s.rend(),
-                            [](unsigned char ch){ return !std::isspace(ch); }).base(), s.end());
-                    } };
-                    trim(content);
-                    std::transform(content.begin(), content.end(), content.begin(),
-                                   [](unsigned char c){ return std::toupper(c); });
-
-                    if (content != lastQRData) handleNewQR(content);
-                }
-            }
-
-            if (detector.shouldAttemptDetection()) {
-                auto cmd{ detector.getNavigationToQR(*nearest, frame.size()) };
-                cv::putText(frame, cmd.instruction, {10, 30},
+        {
+            std::lock_guard<std::mutex> lock(frameMutex);
+            if (frameQueue.size() > 2) frameQueue.pop();
+            frameQueue.push(frame.clone());
+        }
+        frameCV.notify_one();
+        
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            if (!lastInstruction.empty()) {
+                cv::putText(frame, lastInstruction, {10, 30},
                             cv::FONT_HERSHEY_SIMPLEX, 0.7, {0, 255, 0}, 2);
             }
-
-            cv::rectangle(frame, nearest->bbox, {0, 255, 0}, 2);
-        }
-
-        if (!currentInstructions.empty() && currentStepIndex + 1 < currentInstructions.size()) {
-            auto now{ std::chrono::steady_clock::now() };
-            if (now - lastStepTime >= stepInterval) {
-                currentStepIndex++;
-                currentSuggestion = currentInstructions[currentStepIndex].text;
-                lastStepTime = now;
+            if (lastBBox.area() > 0) {
+                cv::rectangle(frame, lastBBox, {0, 255, 0}, 2);
             }
         }
+
+{
+    std::string nextText;
+    bool canAdvance = false;
+
+    // Snapshot state
+    std::chrono::steady_clock::time_point navEndCopy;
+    {
+        std::lock_guard<std::mutex> slock(speechMutex);
+        navEndCopy = lastSpeechEndTime;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(stateMutex);
+
+        if (!currentInstructions.empty() && currentStepIndex + 1 < currentInstructions.size()) {
+            auto now   = std::chrono::steady_clock::now();
+            auto delay = m_firstStepAfterQR ? speakDelayFirst : speakDelayRest;
+
+            // Only advance if no Nav speech is currently in progress
+            if (!navSpeaking && (now - navEndCopy >= delay)) {
+                canAdvance = true;
+                nextText   = currentInstructions[currentStepIndex + 1].text;
+            }
+        }
+    }
+
+    if (canAdvance) {
+        // Mark speaking BEFORE enqueue to prevent any overlap
+        navSpeaking = true;
+
+        // Optional: skip duplicates, if you added lastSpokenSuggestion
+        if (nextText != lastSpokenSuggestion) {
+            {
+                std::lock_guard<std::mutex> qlock(ttsMutex);
+                ttsQueue.push(TTSItem{ nextText, TTSItem::Type::Nav });
+                ttsCV.notify_one();
+            }
+            lastSpokenSuggestion = nextText;
+        }
+
+        // Commit step
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            ++currentStepIndex;
+            currentSuggestion  = nextText;
+            m_firstStepAfterQR = false;
+        }
+    }
+}   
+// {
+        //     std::lock_guard<std::mutex> lock(stateMutex);
+
+        //     if (!currentInstructions.empty() && currentStepIndex + 1 < currentInstructions.size()) {
+        //         auto now = std::chrono::steady_clock::now();
+        //         auto delay = m_firstStepAfterQR ? speakDelayFirst : speakDelayRest;
+
+        //         if (now - lastStepTime >= delay) {
+        //             currentStepIndex++;
+        //             currentSuggestion = currentInstructions[currentStepIndex].text;
+
+        //             if (currentSuggestion != lastSpokenSuggestion) {
+        //                 {
+        //                     std::lock_guard<std::mutex> qlock(ttsMutex);
+        //                     ttsQueue.push(currentSuggestion);
+        //                     ttsCV.notify_one();
+        //                     lastSpokenSuggestion = currentSuggestion;
+        //                 }
+        //                 {
+        //                     std::unique_lock<std::mutex> slock(speechMutex);
+        //                     speechCV.wait(slock, [] { return speechFinished; });
+        //                     speechFinished = false;
+        //                 }
+        //                 lastStepTime = std::chrono::steady_clock::now();
+        //             }
+
+        //             m_firstStepAfterQR = false;
+        //         }
+        //     }
+        // }
 
         cv::Mat hsv{}, mask{};
         cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
         mask = detector.makeColourMask(hsv, detector.getTargetColour());
 
-        cv::Mat composite{ ui.makeComposite(frame, mask, qrROI) };
+        // Build composite and show
+        cv::Mat composite{ ui.makeComposite(frame, mask, cv::Mat{}) };
         cv::Mat finalDisplay{ ui.addTextPanel(composite, lastRoomName, destinationName, currentSuggestion) };
-        // ui.drawOverlay(composite, lastRoomName, destinationName, currentSuggestion);
         ui.showWindow(finalDisplay);
 
         char key = (char)cv::waitKey(1);
-        if (key == 27) break; // ESC to quit
+        if (key == 27) { // ESC
+            running = false;
+            frameCV.notify_all();
+            ttsCV.notify_all();
+            break;
+        }
     }
+
+    // Join threads
+    detectThread.join();
+    ttsThread.join();
 }

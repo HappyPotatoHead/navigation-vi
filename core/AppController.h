@@ -6,13 +6,21 @@
 #include "../modules/QRReader.h"
 #include "../modules/CoordinateMapSystem.h"
 #include "../modules/RouteGuidance.h"
+#include "../modules/TextToSpeech.h"
 #include "UIManager.h"
 
 namespace NavigationVI{
     class AppController{
     public:
         AppController();
+
+        void ttsWorker(TextToSpeech& tts);
+        void detectionWorker(QRDetector& detector, QRReader& reader, RouteGuidance& guider);        
         void run();
+    public: 
+        bool m_firstStepAfterQR{};
+    private:
+        void handleNewQR(const std::string& content);
     private:
         QRDetector detector;
         QRReader reader;
@@ -32,7 +40,5 @@ namespace NavigationVI{
 
         double unitScale{ 1.0 };
         double stepLengthM{ 0.75 };
-
-        void handleNewQR(const std::string& content);
     };
 }

@@ -151,6 +151,7 @@ namespace NavigationVI{
         std::string goalName{ map.getRooms().at(result.m_path.back()).m_name };
 
         instrs.emplace_back("Starting at " + startName + ".");
+        if (onMessage) onMessage("Starting at " + startName + ".");
 
         std::set<RoomType> includeTypes{ {
             //RoomType::CLASSROOM, RoomType::LABORATORY, RoomType::TOILET, RoomType::OFFICE 
@@ -202,12 +203,13 @@ namespace NavigationVI{
 
             std::string text{ action + at_phrase + distance_phrase + landmark_phrase + "." };
             instrs.emplace_back(text, approx_m, seg_steps);
-
+            if (onMessage) onMessage(text);
             total_m += approx_m;
                 total_steps += seg_steps;
         }
 
         instrs.emplace_back("Arrive at " + goalName + ".");
+        if(onMessage) onMessage("Arrive at " + goalName + ".");
         summary["found"] = 1.0;
         summary["total_m"] = total_m;
         summary["total_steps"] = total_steps;

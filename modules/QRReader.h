@@ -4,10 +4,14 @@
 #include <string>
 #include <vector>
 
+#include <functional>
+
 namespace NavigationVI {
     class QRReader{
         public:
             std::string reader(const cv::Mat& imageBGR);
+        public:
+            std::function<void(const std::string&)> onMessage{};
         private:
             cv::Mat toGray(const cv::Mat& image) const;
             cv::Mat perspectiveCorrection(const cv::Mat& image) const;
