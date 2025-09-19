@@ -6,29 +6,29 @@
 
 #include "CoordinateMapSystem.h"
 #include "RouteGuidance.h"
-#include "../utils/Geometry.h"
+#include "./utils/Geometry.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-namespace NavigationVI{
+namespace NavigationVI {
     std::pair<double, double> RouteGuidance::pointSegmentDistance(
-        const Point& p, const Point& a, const Point& b) const{
-            double vx{ b.m_x - a.m_x };
-            double vy{ b.m_y - a.m_y };
-            double wx{ p.m_x - a.m_x };
-            double wy{ p.m_y - a.m_y };
-            double denom{ vx * vx + vy * vy };
-            if (denom < 1e-12) return {a.distanceTo(p), 0.0 };
-            double t{ std::max(0.0, std::min(1.0, (wx * vx + wy * vy) / denom )) };
-            Point proj{};
-            proj.m_x = a.m_x + t * vx;
-            proj.m_y = a.m_y + t * vy;
-            return { proj.distanceTo(p), t }; 
+        const Point& p, const Point& a, const Point& b) const {
+        double vx{ b.m_x - a.m_x };
+        double vy{ b.m_y - a.m_y };
+        double wx{ p.m_x - a.m_x };
+        double wy{ p.m_y - a.m_y };
+        double denom{ vx * vx + vy * vy };
+        if (denom < 1e-12) return { a.distanceTo(p), 0.0 };
+        double t{ std::max(0.0, std::min(1.0, (wx * vx + wy * vy) / denom)) };
+        Point proj{};
+        proj.m_x = a.m_x + t * vx;
+        proj.m_y = a.m_y + t * vy;
+        return { proj.distanceTo(p), t };
     }
 
-    std::string RouteGuidance::sideOfPoint(const Point& p, const Point& a, const Point& b, double eps) const{
+    std::string RouteGuidance::sideOfPoint(const Point& p, const Point& a, const Point& b, double eps) const {
         double cross{ (b.m_x - a.m_x) * (p.m_y - a.m_y) - (b.m_y - a.m_y) * (p.m_x - a.m_x) };
         if (cross > eps) return "left";
         if (cross < -eps) return "right";
@@ -36,7 +36,7 @@ namespace NavigationVI{
     }
 
     std::optional<Room> RouteGuidance::roomAtPoint(const Point& p, const CoordinateMapSystem& map, double tol) const {
-        for (const auto& kv: map.getRooms()){
+        for (const auto& kv : map.getRooms()) {
             if (kv.second.m_center.distanceTo(p) <= tol) return kv.second;
         }
         return std::nullopt;
@@ -47,48 +47,48 @@ namespace NavigationVI{
         const std::set<RoomType>& includeTypes,
         double radius,
         const std::set<std::string>& excludeIds,
-        const CoordinateMapSystem& map) const{
+        const CoordinateMapSystem& map) const {
 
-            std::optional<std::pair<Room, std::string>> best{};
-            double best_d{ std::numeric_limits<double>::infinity() };
+        std::optional<std::pair<Room, std::string>> best{};
+        double best_d{ std::numeric_limits<double>::infinity() };
 
-            for (const auto& kv : map.getRooms()){
-                const auto& rid{ kv.first };
-                const auto& r{ kv.second };
+        for (const auto& kv : map.getRooms()) {
+            const auto& rid{ kv.first };
+            const auto& r{ kv.second };
 
-                if (excludeIds.count(rid)) continue;
-                if(!includeTypes.count(r.m_RoomType)) continue;
+            if (excludeIds.count(rid)) continue;
+            if (!includeTypes.count(r.m_RoomType)) continue;
 
-                auto pr{ pointSegmentDistance(r.m_center, a, b) };
-                double d{ pr.first };
+            auto pr{ pointSegmentDistance(r.m_center, a, b) };
+            double d{ pr.first };
 
-                if (d <= radius && d < best_d){
-                    std::string side{ sideOfPoint(r.m_center, a, b) };
-                    best = std::make_pair(r, side);
-                    best_d = d;
-                }
+            if (d <= radius && d < best_d) {
+                std::string side{ sideOfPoint(r.m_center, a, b) };
+                best = std::make_pair(r, side);
+                best_d = d;
             }
+        }
         return best;
     }
 
     double RouteGuidance::bearingDeg(const Point& a, const Point& b) const { return std::atan2(b.m_y - a.m_y, b.m_x - a.m_x) * 180.0 / M_PI; }
 
-    std::string RouteGuidance::turnPhrase(std::optional<double> prevBearing, double currBearing) const{
+    std::string RouteGuidance::turnPhrase(std::optional<double> prevBearing, double currBearing) const {
         if (!prevBearing.has_value()) return "Head";
 
-        double raw{ currBearing = prevBearing.value() + 180.0 };
-        double mod{ std::fmod(raw, 360.0) };
-        if (mod < 0.0) mod += 360.0;
-        double delta{ mod - 180.0 };
-        double ad{ std::fabs(delta) };
-        
-        if (ad < 15) return "Continue straight";
-        if (ad < 45) return delta > 0 ? "Slight left" : "Slight right";
-        if (ad < 135) return delta > 0 ? "Turn left" : "Turn right";
-        return "Make a U-turn"; 
+        // Signed smallest difference in degrees, normalized to (−180, 180]
+        double diff = currBearing - prevBearing.value();
+        diff = std::fmod(diff + 540.0, 360.0) - 180.0; // normalize
+
+        double ad = std::fabs(diff);
+        if (ad < 15)   return "Continue straight";
+        if (ad < 45)   return diff > 0 ? "Slight left" : "Slight right";
+        if (ad < 135)  return diff > 0 ? "Turn left" : "Turn right";
+        return "Make a U-turn";
     }
 
-    double RouteGuidance::segmentDistanceM(const Point& a, const Point& b, double unitScale) const{ return a.distanceTo(b) * unitScale; }
+
+    double RouteGuidance::segmentDistanceM(const Point& a, const Point& b, double unitScale) const { return a.distanceTo(b) * unitScale; }
 
     double RouteGuidance::estimateStrideFromHeightCm(double height_cm) const { return 0.414 * (height_cm / 100.0); }
 
@@ -97,11 +97,11 @@ namespace NavigationVI{
         const std::string& bRoom,
         int steps,
         const CoordinateMapSystem& map,
-        double stepLengthM) const{
-            if (!map.getRooms().count(aRoom) || !map.getRooms().count(bRoom) || steps <= 0 ) return 1.0;
-            double mapUnits{ map.getRooms().at(aRoom).m_center.distanceTo(map.getRooms().at(bRoom).m_center) };
-            double real_m{ steps * stepLengthM };
-            return real_m / std::max(mapUnits, 1e-9);
+        double stepLengthM) const {
+        if (!map.getRooms().count(aRoom) || !map.getRooms().count(bRoom) || steps <= 0) return 1.0;
+        double mapUnits{ map.getRooms().at(aRoom).m_center.distanceTo(map.getRooms().at(bRoom).m_center) };
+        double real_m{ steps * stepLengthM };
+        return real_m / std::max(mapUnits, 1e-9);
     }
 
     std::pair<std::vector<Instruction>, std::map<std::string, double>>
@@ -119,7 +119,7 @@ namespace NavigationVI{
         std::map<std::string, double> summary;
 
         auto result{ map.findShortestPath(startRoom, goalRoom) };
-        if (!result.m_found || result.m_path.empty()){
+        if (!result.m_found || result.m_path.empty()) {
             instrs.emplace_back("No path found from" + startRoom + " to " + goalRoom + ".");
             summary["found"] = 0.0;
             summary["total_m"] = 0.0;
@@ -129,7 +129,7 @@ namespace NavigationVI{
         }
 
         std::vector<Point> pts{ map.stitchWayPoints(result.m_path) };
-        if (pts.empty()){
+        if (pts.empty()) {
             instrs.emplace_back("No waypoints for path.");
             summary["found"] = 0.0;
             return { instrs, summary };
@@ -137,7 +137,7 @@ namespace NavigationVI{
 
         std::vector<Point> dedup{};
         dedup.push_back(pts.front());
-        for (size_t i{ 1 }; i < pts.size(); ++i){
+        for (size_t i{ 1 }; i < pts.size(); ++i) {
             if (dedup.back().distanceTo(pts[i]) > 1e-6) dedup.push_back(pts[i]);
         }
         pts.swap(dedup);
@@ -154,21 +154,21 @@ namespace NavigationVI{
         if (onMessage) onMessage("Starting at " + startName + ".");
 
         std::set<RoomType> includeTypes{ {
-            //RoomType::CLASSROOM, RoomType::LABORATORY, RoomType::TOILET, RoomType::OFFICE 
-            }    
+                //RoomType::CLASSROOM, RoomType::LABORATORY, RoomType::TOILET, RoomType::OFFICE 
+            }
         };
 
-        for (size_t i{ 0 }; i + 1 < pts.size(); ++i){
+        for (size_t i{ 0 }; i + 1 < pts.size(); ++i) {
             const Point& a{ pts[i] };
             const Point& b{ pts[i + 1] };
 
             double seg_m_if_scaled{ a.distanceTo(b) * unitScale };
             int seg_steps{};
-            if (unitScale != 1.0) seg_steps = std::max( 1, (int)std::lround(seg_m_if_scaled / std::max(stepLengthM, 1e-6)));
+            if (unitScale != 1.0) seg_steps = std::max(1, (int)std::lround(seg_m_if_scaled / std::max(stepLengthM, 1e-6)));
             else seg_steps = std::max(1, (int)std::lround(a.distanceTo(b) / std::max(stepLengthM, 1e-6)));
 
             double approx_m{ seg_steps * stepLengthM };
-                    
+
             double bearing{ bearingDeg(a, b) };
             std::string action{ turnPhrase(prev_bearing, bearing) };
             prev_bearing = bearing;
@@ -181,16 +181,16 @@ namespace NavigationVI{
             if (i < pts.size() - 2) lm = segmentBestLandmark(a, b, includeTypes, landmarkRadius, excludeLandmarks, map);
 
             std::string landmark_phrase{};
-            if (lm.has_value()){
+            if (lm.has_value()) {
                 const Room& lmRoom{ lm->first };
                 const std::string& lmSide{ lm->second };
 
-                if (!b_node.has_value() || lmRoom.m_id != b_node->m_id ) landmark_phrase = ", passing " + lmRoom.m_name + " on your " + lmSide;
+                if (!b_node.has_value() || lmRoom.m_id != b_node->m_id) landmark_phrase = ", passing " + lmRoom.m_name + " on your " + lmSide;
             }
 
             std::string distance_phrase{};
             if (mode == "landmarks") distance_phrase = "";
-            else if(mode == "map"){
+            else if (mode == "map") {
                 std::ostringstream oss{};
                 oss << " for about " << (int)std::lround(seg_m_if_scaled) << " meters";
                 distance_phrase = oss.str();
@@ -205,11 +205,11 @@ namespace NavigationVI{
             instrs.emplace_back(text, approx_m, seg_steps);
             if (onMessage) onMessage(text);
             total_m += approx_m;
-                total_steps += seg_steps;
+            total_steps += seg_steps;
         }
 
         instrs.emplace_back("Arrive at " + goalName + ".");
-        if(onMessage) onMessage("Arrive at " + goalName + ".");
+        if (onMessage) onMessage("Arrive at " + goalName + ".");
         summary["found"] = 1.0;
         summary["total_m"] = total_m;
         summary["total_steps"] = total_steps;

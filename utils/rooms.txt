@@ -25,7 +25,7 @@ NGT5|Female Toilet|TOILET|80|40|8|8
 ENTRANCE_MAIN|Main Entrance|ENTRANCE|95|90|10|6
 
 # ---------- Junctions ----------
-JUNC_LEFT|Left Junction|CORRIDOR|15|65|4|4
+JUNC_LEFT|Left Junction|CORRIDOR|15|95|4|4
 JUNC_MID|Middle Junction|CORRIDOR|95|65|4|4
 JUNC_RIGHT|Right Junction|CORRIDOR|215|65|4|4
 
