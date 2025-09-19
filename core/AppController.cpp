@@ -125,6 +125,15 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
             frameQueue.pop();
         }
 
+        cv::Mat hsv{};
+        cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+
+        cv::Mat mask{ detector.makeColourMask(hsv, detector.getTargetColour()) };
+        cv::Mat maskedFrame{};
+        cv::bitwise_and(frame, frame, maskedFrame, mask);
+
+        if(!detector.shouldAttemptDetection()) continue;
+
         auto codes   = detector.detectQRCodes(frame, false);
         auto nearest = detector.findNearestQRCode(codes);
 
