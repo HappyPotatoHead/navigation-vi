@@ -323,82 +323,6 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
             auto content{ decodeQR(roi) };
             if (!content.empty()) handleDecodedQR(content);
         }
-        //     {
-        //         auto cmd = detector.getNavigationToQR(*nearest, frame.size());
-        //         std::lock_guard<std::mutex> lock(stateMutex);
-        //         lastInstruction = cmd.instruction;
-        //         lastBBox = nearest->bbox;
-        //     }
-
-        //     float currentWidthPx{ static_cast<float>(nearest->bbox.width) };
-        //     float estimateDistanceM{ (REF_DISTANCE_M * REF_PIXEL_WIDTH )/ currentWidthPx };
-
-        //     if (estimateDistanceM > TARGET_DISTANCE_M){
-        //         {
-        //             std::lock_guard<std::mutex> lock(stateMutex);
-        //             lastInstruction = "Move closer to the QR";
-        //         }
-        //         continue;
-        //     }
-        //     // Only decode if QR is large enough
-        //     if (nearest->bbox.width >= QR_DECODE_MIN_WIDTH) {
-        //         cv::Mat qrROI;
-        //         if (!nearest->corners.empty() && nearest->corners.size() == 4) {
-        //             double side = 0.0;
-        //             for (int i = 0; i < 4; ++i) {
-        //                 double dist = cv::norm(nearest->corners[i] - nearest->corners[(i + 1) % 4]);
-        //                 side = std::max(side, dist);
-        //             }
-        //             int outSide = static_cast<int>(std::clamp(side, 16.0, 1024.0));
-        //             std::vector<cv::Point2f> dst{
-        //                 {0, 0},
-        //                 { static_cast<float>(outSide - 1), 0 },
-        //                 { static_cast<float>(outSide - 1), static_cast<float>(outSide - 1) },
-        //                 { 0, static_cast<float>(outSide - 1) }
-        //             };
-        //             cv::Mat M = cv::getPerspectiveTransform(nearest->corners, dst);
-        //             cv::warpPerspective(frame, qrROI, M, cv::Size(outSide, outSide));
-        //         } else {
-        //             cv::Rect roi = nearest->bbox & cv::Rect(0, 0, frame.cols, frame.rows);
-        //             if (roi.width > 0 && roi.height > 0) qrROI = frame(roi).clone();
-        //         }
-
-        //         if (!qrROI.empty()) {
-        //             {
-        //                 std::lock_guard<std::mutex> lock(stateMutex);
-        //                 lastQRROI = qrROI.clone();
-        //             }
-        //             std::string content = reader.reader(qrROI);
-        //             if (!content.empty()) {
-        //                 auto trim = [](std::string& s) {
-        //                     s.erase(s.begin(), std::find_if(s.begin(), s.end(),
-        //                         [](unsigned char ch) { return !std::isspace(ch); }));
-        //                     s.erase(std::find_if(s.rbegin(), s.rend(),
-        //                         [](unsigned char ch) { return !std::isspace(ch); }).base(), s.end());
-        //                 };
-        //                 trim(content);
-        //                 std::transform(content.begin(), content.end(), content.begin(),
-        //                             [](unsigned char c) { return std::toupper(c); });
-
-        //                 if (content != lastQRData) {
-        //                     handleNewQR(content);
-        //                     {
-        //                         std::lock_guard<std::mutex> lock(stateMutex);
-        //                         newQRScanned = true;
-        //                         lastQRScanTime = std::chrono::steady_clock::now();
-        //                     }
-        //                     std::lock_guard<std::mutex> lock(ttsMutex);
-        //                     ttsQueue.push(TTSItem{ "QR detected: " + content, TTSItem::Type::Announce });
-        //                     ttsCV.notify_one();
-        //                 }
-        //             }
-        //         }
-        //     }
-        // } else {
-        //     std::lock_guard<std::mutex> lock(stateMutex);
-        //     lastInstruction.clear();
-        //     lastBBox = cv::Rect();
-        // }
     }
 }
 
@@ -472,9 +396,6 @@ void AppController::run() {
 
     std::string lastSpokenSuggestion{};
 
-    // auto speakDelayFirst{ std::chrono::seconds(3) };
-    // auto speakDelayRest{ std::chrono::seconds(15) };
-
     if (routeReset) { lastSpokenSuggestion.clear(); routeReset = false; }
 
     while (true){
@@ -484,93 +405,9 @@ void AppController::run() {
         drawOverlay(frame);
         maybeAdvanceStep();
         showComposite(frame);
-        
+
         if(checkForExitKey()) break;
     }
-    // while (true) {
-    //     if (!cap.read(frame) || frame.empty()) break;
-    //     //cv::flip(frame, frame, 1);
-    //     {
-    //         std::lock_guard<std::mutex> lock(frameMutex);
-    //         if (frameQueue.size() > 2) frameQueue.pop();
-    //         frameQueue.push(frame.clone());
-    //     }
-    //     frameCV.notify_one();
-
-    //     {
-    //         std::lock_guard<std::mutex> lock(stateMutex);
-    //         if (!lastInstruction.empty()) {
-    //             cv::putText(frame, lastInstruction, { 10, 30 },
-    //                 cv::FONT_HERSHEY_SIMPLEX, 0.7, { 0, 255, 0 }, 2);
-    //         }
-    //         if (lastBBox.area() > 0) {
-    //             cv::rectangle(frame, lastBBox, { 0, 255, 0 }, 2);
-    //         }
-    //     }
-    //     {
-    //         std::string nextText;
-    //         bool canAdvance = false;
-
-    //         std::chrono::steady_clock::time_point navEndCopy{};
-    //         {
-    //             std::lock_guard<std::mutex> slock(speechMutex);
-    //             navEndCopy = lastSpeechEndTime;
-    //         }
-
-    //         {
-    //             std::lock_guard<std::mutex> lock(stateMutex);
-    //             if (newQRScanned && !currentInstructions.empty() &&
-    //                 currentStepIndex + 1 < currentInstructions.size()) {
-
-    //                 auto now = std::chrono::steady_clock::now();
-    //                 auto delay = std::chrono::seconds(3);
-
-    //                 if (!navSpeaking && (now - lastQRScanTime >= delay)) {
-    //                     canAdvance = true;
-    //                     nextText = currentInstructions[currentStepIndex + 1].text;
-    //                     newQRScanned = false; // FIXED: was '-' before
-    //                 }
-    //             }
-    //         }
-
-    //         if (canAdvance) {
-    //             navSpeaking = true;
-    //             {
-    //                 std::lock_guard<std::mutex> qlock(ttsMutex);
-    //                 ttsQueue.push(TTSItem{ nextText, TTSItem::Type::Nav });
-    //                 ttsCV.notify_one();
-    //             }
-    //             {
-    //                 std::lock_guard<std::mutex> lock(stateMutex);
-    //                 ++currentStepIndex;
-    //                 currentSuggestion = nextText;
-    //                 m_firstStepAfterQR = false;
-    //             }
-    //         }
-    //     }
-        
-    //     cv::Mat hsv{}, mask{};
-    //     cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-    //     mask = detector.makeColourMask(hsv, detector.getTargetColour());
-    //     //mask = detector.makeColourMask(hsv, uiTargetColour);
-    //     cv::Mat qrPreview{};
-    //     {
-    //         std::lock_guard<std::mutex> lock(stateMutex);
-    //         qrPreview = lastQRROI.clone();
-    //     }
-    //     // Build composite and show
-    //     cv::Mat composite{ ui.makeComposite(frame, mask, qrPreview) };
-    //     cv::Mat finalDisplay{ ui.addTextPanel(composite, lastRoomName, destinationName, currentSuggestion) };
-    //     ui.showWindow(finalDisplay);
-
-    //     char key = (char)cv::waitKey(1);
-    //     if (key == 27) { // ESC
-    //         running = false;
-    //         frameCV.notify_all();
-    //         ttsCV.notify_all();
-    //         break;
-    //     }
-    // }
 
     // Join threads
     detectThread.join();
