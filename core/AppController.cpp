@@ -470,7 +470,7 @@ void AppController::run() {
 
     cv::Mat frame{};
 
-    // std::string lastSpokenSuggestion{};
+    std::string lastSpokenSuggestion{};
 
     // auto speakDelayFirst{ std::chrono::seconds(3) };
     // auto speakDelayRest{ std::chrono::seconds(15) };
