@@ -25,6 +25,12 @@ namespace NavigationVI{
         std::string decodeQR(const cv::Mat& roi);
         void handleDecodedQR(const std::string& content);
         void maybeAdvanceStep();
+        void setInstruction(const std::string& text);
+
+        void queueFrame(const cv::Mat& frame);
+        void drawOverlay(cv::Mat& frame);
+        void showComposite(const cv::Mat& frame);
+        bool checkForExitKey();
     public: 
         bool m_firstStepAfterQR{};
         cv::Mat lastQRROI{};

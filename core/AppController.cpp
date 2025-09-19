@@ -169,7 +169,54 @@ void AppController::maybeAdvanceStep() {
             m_firstStepAfterQR = false;
         }
     }
+}
 
+void AppController::setInstruction(const std::string& text) {
+    std::lock_guard<std::mutex> lock(stateMutex);
+    lastInstruction = text;
+}
+
+void AppController::queueFrame(const cv::Mat& frame) {
+    std::lock_guard<std::mutex> lock(frameMutex);
+    if (frameQueue.size() > 2) frameQueue.pop();
+    frameQueue.push(frame.clone());
+    frameCV.notify_one();
+}
+
+void AppController::drawOverlay(cv::Mat& frame) {
+    std::lock_guard<std::mutex> lock(stateMutex);
+    if (!lastInstruction.empty())
+        cv::putText(frame, lastInstruction, {10, 30},
+            cv::FONT_HERSHEY_SIMPLEX, 0.7, {0, 255, 0}, 2);
+    if (lastBBox.area() > 0)
+        cv::rectangle(frame, lastBBox, {0, 255, 0}, 2);
+}
+
+void AppController::showComposite(const cv::Mat& frame) {
+    cv::Mat hsv{}, mask{};
+    cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+    mask = detector.makeColourMask(hsv, detector.getTargetColour());
+    //mask = detector.makeColourMask(hsv, uiTargetColour);
+    cv::Mat qrPreview{};
+    {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        qrPreview = lastQRROI.clone();
+    }
+    // Build composite and show
+    cv::Mat composite{ ui.makeComposite(frame, mask, qrPreview) };
+    cv::Mat finalDisplay{ ui.addTextPanel(composite, lastRoomName, destinationName, currentSuggestion) };
+    ui.showWindow(finalDisplay);
+}
+
+bool AppController::checkForExitKey() {
+    char key{ static_cast<char>(cv::waitKey(1)) };
+    if (key == 27) { // ESC
+        running = false;
+        frameCV.notify_all();
+        ttsCV.notify_all();
+        return true;
+    }
+    return false;
 }
 
 AppController::AppController()
@@ -422,10 +469,11 @@ void AppController::run() {
     std::thread detectThread(&AppController::detectionWorker, this, std::ref(detector), std::ref(reader), std::ref(guider));
 
     cv::Mat frame{};
-    std::string lastSpokenSuggestion{};
 
-    auto speakDelayFirst{ std::chrono::seconds(3) };
-    auto speakDelayRest{ std::chrono::seconds(15) };
+    // std::string lastSpokenSuggestion{};
+
+    // auto speakDelayFirst{ std::chrono::seconds(3) };
+    // auto speakDelayRest{ std::chrono::seconds(15) };
 
     if (routeReset) { lastSpokenSuggestion.clear(); routeReset = false; }
 
@@ -436,6 +484,7 @@ void AppController::run() {
         drawOverlay(frame);
         maybeAdvanceStep();
         showComposite(frame);
+        
         if(checkForExitKey()) break;
     }
     // while (true) {
