@@ -19,6 +19,7 @@ namespace NavigationVI{
         void run();
     public: 
         bool m_firstStepAfterQR{};
+        cv::Mat lastQRROI{};
     private:
         void handleNewQR(const std::string& content);
     private:
