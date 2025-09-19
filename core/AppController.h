@@ -17,6 +17,14 @@ namespace NavigationVI{
         void ttsWorker(TextToSpeech& tts);
         void detectionWorker(QRDetector& detector, QRReader& reader, RouteGuidance& guider);        
         void run();
+
+        cv::Mat waitForNextFrame();
+        void updateGuidanceOverlay(const QRCode& qr, const cv::Size& frameSize);
+        bool isCloseEnough(const QRCode& qr) const;
+        cv::Mat extractQRROI(const QRCode& qr, const cv::Mat& frame);
+        std::string decodeQR(const cv::Mat& roi);
+        void handleDecodedQR(const std::string& content);
+        void maybeAdvanceStep();
     public: 
         bool m_firstStepAfterQR{};
         cv::Mat lastQRROI{};
