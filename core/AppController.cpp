@@ -51,6 +51,8 @@ constexpr float REF_DISTANCE_M{ 1.0f };
 constexpr float REF_PIXEL_WIDTH{ 120.0f };
 constexpr float TARGET_DISTANCE_M{ 0.5f };
 
+std::chrono::steady_clock::time_point lastDistanceTTS = std::chrono::steady_clock::now();
+
 TextToSpeech tts;
 
 static inline void toLowerInPlace(std::string& s) {
@@ -311,6 +313,16 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
 
         if(!isCloseEnough(*nearest)) {
             setInstruction("Move closer to the QR");
+
+            auto now{ std::chrono::steady_clock::now() };
+            if (std::chrono::duration_cast<std::chrono::seconds>(now - lastDistanceTTS).count() >= 2){
+                {
+                    std::lock_guard<std::mutex> lock(ttsMutex);
+                    ttsQueue.push(TTSItem{"Please move closer to the QR code", TTSItem::Type::Announce});
+                    ttsCV.notify_one();
+                }
+                lastDistanceTTS = now;
+            }
             continue;
         }
 
@@ -375,18 +387,32 @@ void AppController::run() {
 
     //detector.setTargetColour(QRColour::NONE);
     detector.setTargetColour(targetColour);
-    detector.setMinArea(300);
-    detector.setAspectRatioTolerance(0.5f, 2.0f);
-    detector.setBoundingBoxPadding(75);
+    detector.setMinArea(1500);
+    detector.setAspectRatioTolerance(0.8f, 1.25f);
+    detector.setBoundingBoxPadding(150);
     detector.setDistanceReference(120.0f, 1.0f);
     detector.setColourVerificationEnabled(true);
-    detector.setDetectionThrottle(1, 700);
+    detector.setDetectionThrottle(2,1000);
 
-    cv::VideoCapture cap(0);
+    std::string pipeline =
+    "v4l2src device=/dev/video0 ! "
+    "image/jpeg, width=1280, height=720, framerate=30/1 ! "
+    "jpegdec ! videoconvert ! appsink";
+
+    cv::VideoCapture cap(pipeline, cv::CAP_GSTREAMER);
+
     if (!cap.isOpened()) {
         std::cerr << "Failed to open camera\n";
         return;
     }
+
+    std::cout << "Width: "  << cap.get(cv::CAP_PROP_FRAME_WIDTH)
+          << " Height: " << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << '\n';
+
+    // cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
+    // cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+    // cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
+    // cap.set(cv::CAP_PROP_FPS, 30);
 
     // Start workers
     std::thread ttsThread(&AppController::ttsWorker, this, std::ref(tts));
