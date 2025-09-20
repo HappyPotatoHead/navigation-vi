@@ -174,7 +174,8 @@ namespace NavigationVI{
     DetectResult QRDetector::robustDetectInROI(
         const cv::Mat& frame,
         const cv::Rect& roi,
-        bool tryDecode) const {
+        bool tryDecode
+        ) const {
             
         DetectResult out{};
 
@@ -246,6 +247,7 @@ namespace NavigationVI{
 
         cv::Mat otsu{};
         cv::threshold(gray, otsu, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
         cv::Mat invOtsu{}; cv::bitwise_not(otsu, invOtsu);
         if (attempt(invOtsu, tryDecode, out)) return out;
 
@@ -254,7 +256,7 @@ namespace NavigationVI{
                             cv::THRESH_BINARY, 11, 2);
         cv::Mat invAdap{}; cv::bitwise_not(adap, invAdap);
         if (attempt(invAdap, tryDecode, out)) return out;
-
+        
         return out;
     }
 
@@ -305,7 +307,6 @@ namespace NavigationVI{
 
         cv::Mat hsv{}; cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
         cv::Mat mask{ makeColourMask(hsv, m_targetColour) };
-
         auto rois{ findCandidateROIs(mask) };
 
         for (const auto& roi : rois) {

@@ -11,6 +11,7 @@
 #include "../utils/QRCode.h"
 
 namespace NavigationVI{
+
     class QRDetector{
         public:
             QRDetector();

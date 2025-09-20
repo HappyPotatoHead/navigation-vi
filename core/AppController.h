@@ -29,7 +29,7 @@ namespace NavigationVI{
 
         void queueFrame(const cv::Mat& frame);
         void drawOverlay(cv::Mat& frame);
-        void showComposite(const cv::Mat& frame);
+        void showComposite(const cv::Mat& frame, QRColour uiTargetColour);
         bool checkForExitKey();
     public: 
         bool m_firstStepAfterQR{};

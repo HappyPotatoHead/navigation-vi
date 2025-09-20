@@ -23,6 +23,9 @@ JUNC_MID|N011|corridor
 JUNC_RIGHT|NGT1|corridor
 JUNC_RIGHT|N001|corridor
 
+JUNC_LEFT|JUNC_TOP_LEFT|corridor
+JUNC_TOP_LEFT|NG-001|corridor
+
 # ---------- Toilets ----------
 N008|NGT3|corridor
 NGT3|NGT4|corridor
@@ -98,12 +101,12 @@ NGT7|NG-011|corridor
 NGT6|NGT7|corridor
 NGT6|NG-022|corridor
 
-# ── Staircases (replace your existing staircase block with this) ──
+# ── Staircases ──
 STAIR_L|NG-052|corridor
 STAIR_R|NG-044|corridor
 
 # ---- BRIDGE: main building ↔ staffroom wing via LEFT_JUNCTION ----
-JUNC_LEFT|NG-001|corridor
+
 JUNC_LEFT|NG-015|corridor
 JUNC_LEFT|NG-044|corridor
 JUNC_LEFT|NG-043|corridor

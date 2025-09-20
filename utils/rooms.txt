@@ -25,12 +25,13 @@ NGT5|Female Toilet|TOILET|80|40|8|8
 ENTRANCE_MAIN|Main Entrance|ENTRANCE|95|90|10|6
 
 # ---------- Junctions ----------
-JUNC_LEFT|Left Junction|CORRIDOR|25|95|4|4
+JUNC_LEFT|Left Junction|CORRIDOR|10|80|4|4
 JUNC_MID|Middle Junction|CORRIDOR|95|65|4|4
 JUNC_RIGHT|Right Junction|CORRIDOR|215|65|4|4
+JUNC_TOP_LEFT|Top Left Junction|CORRIDOR|10|120|4|4
 
 # ---------- Staffrooms NG-001..NG-014 (reverse order) ----------
-NG-001|Staffroom NG-001|OFFICE|15|120|14|14
+NG-001|Staffroom NG-001|OFFICE|5|122|14|14
 NG-002|Staffroom NG-002|OFFICE|30|120|14|14
 NG-003|Staffroom NG-003|OFFICE|45|120|14|14
 NG-004|Staffroom NG-004|OFFICE|60|120|14|14
