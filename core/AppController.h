@@ -15,22 +15,25 @@ namespace NavigationVI{
         AppController();
 
         void ttsWorker(TextToSpeech& tts);
-        void detectionWorker(QRDetector& detector, QRReader& reader, RouteGuidance& guider);        
-        void run();
+        void detectionWorker(QRDetector& detector, QRReader& reader, RouteGuidance& guider); 
 
         cv::Mat waitForNextFrame();
-        void updateGuidanceOverlay(const QRCode& qr, const cv::Size& frameSize);
+        void queueFrame(const cv::Mat& frame);
         bool isCloseEnough(const QRCode& qr) const;
         cv::Mat extractQRROI(const QRCode& qr, const cv::Mat& frame);
+
         std::string decodeQR(const cv::Mat& roi);
         void handleDecodedQR(const std::string& content);
+        
         void maybeAdvanceStep();
         void setInstruction(const std::string& text);
 
-        void queueFrame(const cv::Mat& frame);
+        void updateGuidanceOverlay(const QRCode& qr, const cv::Size& frameSize);
         void drawOverlay(cv::Mat& frame);
-        void showComposite(const cv::Mat& frame, QRColour uiTargetColour);
+        void showComposite(const cv::Mat& frame);
+
         bool checkForExitKey();
+        void run();
     public: 
         bool m_firstStepAfterQR{};
         cv::Mat lastQRROI{};

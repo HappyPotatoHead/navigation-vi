@@ -57,9 +57,9 @@ constexpr float REF_DISTANCE_M{ 1.0f };
 constexpr float REF_PIXEL_WIDTH{ 140.0f };
 constexpr float TARGET_DISTANCE_M{ 0.3f };
 
-std::chrono::steady_clock::time_point lastDistanceTTS = std::chrono::steady_clock::now();
+std::chrono::steady_clock::time_point lastDistanceTTS{ std::chrono::steady_clock::now() };
 
-TextToSpeech tts;
+TextToSpeech tts{};
 
 static inline void toLowerInPlace(std::string& s) {
     std::transform(s.begin(), s.end(), s.begin(),
@@ -133,33 +133,25 @@ std::string AppController::decodeQR(const cv::Mat& roi) {
 
 void AppController::handleDecodedQR(const std::string& content) {
     std::string prevQR;
-
-    // Always update lastQRData, but remember the previous one for comparison
     {
         std::lock_guard<std::mutex> lock(stateMutex);
         prevQR = lastQRData;
-        lastQRData = content; // <-- now always reflects the most recent scan
+        lastQRData = content;
         if (auto resolved = mapSystem.resolveRoomId(content))
             lastRoomName = mapSystem.getRooms().at(resolved.value()).m_name;
         else
             lastRoomName = content + " (unknown)";
     }
-
-    // Only run navigation logic if this is a different QR from the last one
     if (content != prevQR) {
         if (currentInstructions.empty()) {
-            // First QR: build and store the full route
             handleNewQR(content);
         } else {
-            // Later QR: find this QR in the stored route
             for (size_t i = 0; i < currentInstructions.size(); ++i) {
                 if (currentInstructions[i].text.find(content) != std::string::npos) {
-                    // Show the NEXT instruction if there is one
                     if (i + 1 < currentInstructions.size()) {
                         currentStepIndex = i+1;
                         currentSuggestion = currentInstructions[currentStepIndex].text;
                     } else {
-                        // Already at the last step
                         currentStepIndex = i;
                         currentSuggestion = currentInstructions[i].text;
                         
@@ -186,7 +178,6 @@ void AppController::handleDecodedQR(const std::string& content) {
             ttsQueue.push(TTSItem{lastInstruction, TTSItem::Type::Nav});
             ttsCV.notify_one();
         } 
-        // If we're at the last step and lastInstruction is empty, speak currentSuggestion instead
         else if (!currentInstructions.empty() && currentStepIndex == currentInstructions.size() - 1) {
             std::cout << currentSuggestion; 
             ttsQueue.push(TTSItem{currentSuggestion, TTSItem::Type::Nav});
@@ -197,8 +188,7 @@ void AppController::handleDecodedQR(const std::string& content) {
 
 void AppController::maybeAdvanceStep() {
     std::string nextText{};
-    bool canAdvance = false;
-
+    bool canAdvance{false};
     {
         std::lock_guard<std::mutex> lock(stateMutex);
         if (newQRScanned && !currentInstructions.empty() &&
@@ -212,7 +202,6 @@ void AppController::maybeAdvanceStep() {
             }
         }
     }
-
     if (canAdvance) {
         navSpeaking = true;
         {
@@ -250,18 +239,17 @@ void AppController::drawOverlay(cv::Mat& frame) {
         cv::rectangle(frame, lastBBox, {0, 255, 0}, 2);
 }
 
-void AppController::showComposite(const cv::Mat& frame, QRColour uiTargetColour) {
+void AppController::showComposite(const cv::Mat& frame) {
     cv::Mat hsv{}, mask{};
     cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-    // mask = detector.makeColourMask(hsv, detector.getTargetColour());
-    mask = detector.makeColourMask(hsv, uiTargetColour);
+    mask = detector.makeColourMask(hsv, detector.getTargetColour());
     cv::Mat qrPreview{};
     {
         std::lock_guard<std::mutex> lock(stateMutex);
         qrPreview = lastQRROI.empty() ? cv::Mat(frame.size(), frame.type(), cv::Scalar(0,0,0)) : lastQRROI.clone();
         qrPreview = lastQRROI.clone();
     }
-    // Build composite and show
+
     cv::Mat composite{ ui.makeComposite(frame, mask, qrPreview) };
     cv::Mat finalDisplay{ ui.addTextPanel(composite, lastRoomName, destinationName, currentSuggestion) };
     ui.showWindow(finalDisplay);
@@ -269,7 +257,7 @@ void AppController::showComposite(const cv::Mat& frame, QRColour uiTargetColour)
 
 bool AppController::checkForExitKey() {
     char key{ static_cast<char>(cv::waitKey(1)) };
-    if (key == 27) { // ESC
+    if (key == 27) { 
         running = false;
         frameCV.notify_all();
         ttsCV.notify_all();
@@ -358,7 +346,7 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
 
         auto codes = detector.detectQRCodes(frame, false);
         auto nearest = detector.findNearestQRCode(codes);
-        // Always update guidance
+
         if (!nearest) {
             std::lock_guard<std::mutex> lock(stateMutex);
             lastInstruction.clear();
@@ -390,12 +378,12 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
             if (!content.empty()) {
                 {
                     std::lock_guard<std::mutex> lock(stateMutex);
-                    lastQRROI = roi.clone(); // store only on success
+                    lastQRROI = roi.clone(); 
                 }
                 handleDecodedQR(content);
             } else {
                 std::lock_guard<std::mutex> lock(stateMutex);
-                lastQRROI.release(); // clear preview on failure
+                lastQRROI.release(); 
             }
         }
 
@@ -411,7 +399,6 @@ void AppController::run() {
     };
     int colourChoice{};
 
-    // Start workers
     std::thread ttsThread(&AppController::ttsWorker, this, std::ref(tts));
     std::thread detectThread(&AppController::detectionWorker, this, std::ref(detector), std::ref(reader), std::ref(guider));
 
@@ -467,8 +454,6 @@ void AppController::run() {
         return;
     }
 
-
-    // std::string destinationId{};
     while(true){
         {
             std::lock_guard<std::mutex> lock(ttsMutex);
@@ -507,10 +492,6 @@ void AppController::run() {
         ttsCV.notify_one();
     }
 
-    // QRColour uiTargetColour{ targetColour };
-    // if(colourMap.count(colourChoice)) uiTargetColour = colourMap[colourChoice];
-
-    // detector.setTargetColour(QRColour::NONE);
     detector.setTargetColour(targetColour);
     detector.setMinArea(1000);
     detector.setAspectRatioTolerance(0.8f, 1.25f);
@@ -545,8 +526,7 @@ void AppController::run() {
         queueFrame(frame);
         drawOverlay(frame);
         maybeAdvanceStep();
-        showComposite(frame, targetColour);
-        // showComposite(frame, uiTargetColour);
+        showComposite(frame);
 
         if(checkForExitKey()) break;
     }
@@ -555,66 +535,3 @@ void AppController::run() {
     detectThread.join();
     ttsThread.join();
 }
-
-
-// void AppController::handleDecodedQR(const std::string& content) {
-//     if (content != lastQRData) {
-//         handleNewQR(content);
-//         {
-//             std::lock_guard<std::mutex> lock(stateMutex);
-//             newQRScanned = true;
-//             lastQRScanTime = std::chrono::steady_clock::now();
-//         }
-//         std::lock_guard<std::mutex> lock(ttsMutex);
-//         ttsQueue.push(TTSItem{"QR detected: " + content, TTSItem::Type::Announce});
-//         ttsCV.notify_one();
-//     }
-// }
-
-// void AppController::maybeAdvanceStep() {
-//     std::string nextText{};
-//     bool canAdvance = false;
-
-//     {
-//         std::lock_guard<std::mutex> lock(stateMutex);
-//         if (newQRScanned && m_firstStepAfterQR &&
-//             !currentInstructions.empty() &&
-//             currentStepIndex + 1 < currentInstructions.size()) {
-
-//             auto now = std::chrono::steady_clock::now();
-//             if (!navSpeaking && (now - lastQRScanTime >= std::chrono::seconds(3))) {
-//                 canAdvance = true;
-//                 nextText = currentInstructions[currentStepIndex + 1].text;
-//                 newQRScanned = false;
-//             }
-//         }
-//     }
-
-//     if (canAdvance) {
-//         navSpeaking = true;
-//         {
-//             std::lock_guard<std::mutex> qlock(ttsMutex);
-//             ttsQueue.push(TTSItem{nextText, TTSItem::Type::Nav});
-//             ttsCV.notify_one();
-//         }
-//         {
-//             std::lock_guard<std::mutex> lock(stateMutex);
-//             ++currentStepIndex;
-//             currentSuggestion = nextText;
-//             m_firstStepAfterQR = false; // reset after advancing
-//         }
-//     }
-// }
-
-
-// DetectionWorker
-        // {
-        //     static std::string lastSpokenInstruction;
-        //     std::lock_guard<std::mutex> lock(stateMutex);
-        //     if (!newQRScanned && !lastInstruction.empty() && lastInstruction != lastSpokenInstruction) {
-        //         std::lock_guard<std::mutex> tlock(ttsMutex);
-        //         ttsQueue.push(TTSItem{lastInstruction, TTSItem::Type::Nav});
-        //         ttsCV.notify_one();
-        //         lastSpokenInstruction = lastInstruction;
-        //     }
-        // }
