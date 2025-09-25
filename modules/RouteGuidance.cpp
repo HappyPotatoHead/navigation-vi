@@ -6,7 +6,7 @@
 
 #include "CoordinateMapSystem.h"
 #include "RouteGuidance.h"
-#include "../utils/Geometry.h"
+#include "./utils/Geometry.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -40,35 +40,6 @@ namespace NavigationVI {
             if (kv.second.m_center.distanceTo(p) <= tol) return kv.second;
         }
         return std::nullopt;
-    }
-
-    std::optional<std::pair<Room, std::string>> RouteGuidance::segmentBestLandmark(
-        const Point& a, const Point& b,
-        const std::set<RoomType>& includeTypes,
-        double radius,
-        const std::set<std::string>& excludeIds,
-        const CoordinateMapSystem& map) const {
-
-        std::optional<std::pair<Room, std::string>> best{};
-        double best_d{ std::numeric_limits<double>::infinity() };
-
-        for (const auto& kv : map.getRooms()) {
-            const auto& rid{ kv.first };
-            const auto& r{ kv.second };
-
-            if (excludeIds.count(rid)) continue;
-            if (!includeTypes.count(r.m_RoomType)) continue;
-
-            auto pr{ pointSegmentDistance(r.m_center, a, b) };
-            double d{ pr.first };
-
-            if (d <= radius && d < best_d) {
-                std::string side{ sideOfPoint(r.m_center, a, b) };
-                best = std::make_pair(r, side);
-                best_d = d;
-            }
-        }
-        return best;
     }
 
     double RouteGuidance::bearingDeg(const Point& a, const Point& b) const { return std::atan2(b.m_y - a.m_y, b.m_x - a.m_x) * 180.0 / M_PI; }
@@ -153,10 +124,10 @@ namespace NavigationVI {
         instrs.emplace_back("Starting at " + startName + ".");
         if (onMessage) onMessage("Starting at " + startName + ".");
 
-        std::set<RoomType> includeTypes{ {
-                //RoomType::CLASSROOM, RoomType::LABORATORY, RoomType::TOILET, RoomType::OFFICE 
-            }
-        };
+        //std::set<RoomType> includeTypes{ {
+        //        //RoomType::CLASSROOM, RoomType::LABORATORY, RoomType::TOILET, RoomType::OFFICE 
+        //    }
+        //};
 
         for (size_t i{ 0 }; i + 1 < pts.size(); ++i) {
             const Point& a{ pts[i] };
@@ -177,16 +148,16 @@ namespace NavigationVI {
             auto b_node{ roomAtPoint(b, map) };
             if (b_node.has_value() && (anchorEverySegment || action != "Continue straight")) at_phrase = " to " + b_node->m_name;
 
-            std::optional<std::pair<Room, std::string>> lm{};
-            if (i < pts.size() - 2) lm = segmentBestLandmark(a, b, includeTypes, landmarkRadius, excludeLandmarks, map);
+            /*std::optional<std::pair<Room, std::string>> lm{};
+            if (i < pts.size() - 2) lm = segmentBestLandmark(a, b, includeTypes, landmarkRadius, excludeLandmarks, map);*/
 
-            std::string landmark_phrase{};
+            /*std::string landmark_phrase{};
             if (lm.has_value()) {
                 const Room& lmRoom{ lm->first };
                 const std::string& lmSide{ lm->second };
 
                 if (!b_node.has_value() || lmRoom.m_id != b_node->m_id) landmark_phrase = ", passing " + lmRoom.m_name + " on your " + lmSide;
-            }
+            }*/
 
             std::string distance_phrase{};
             if (mode == "landmarks") distance_phrase = "";
@@ -201,7 +172,8 @@ namespace NavigationVI {
                 distance_phrase = oss.str();
             }
 
-            std::string text{ action + at_phrase + distance_phrase + landmark_phrase + "." };
+            //std::string text{ action + at_phrase + distance_phrase + landmark_phrase + "." };
+            std::string text{ action + at_phrase + distance_phrase + "." };
             instrs.emplace_back(text, approx_m, seg_steps);
             if (onMessage) onMessage(text);
             total_m += approx_m;
@@ -221,3 +193,32 @@ namespace NavigationVI {
 
     }
 }
+
+/*std::optional<std::pair<Room, std::string>> RouteGuidance::segmentBestLandmark(
+    const Point& a, const Point& b,
+    const std::set<RoomType>& includeTypes,
+    double radius,
+    const std::set<std::string>& excludeIds,
+    const CoordinateMapSystem& map) const {
+
+    std::optional<std::pair<Room, std::string>> best{};
+    double best_d{ std::numeric_limits<double>::infinity() };
+
+    for (const auto& kv : map.getRooms()) {
+        const auto& rid{ kv.first };
+        const auto& r{ kv.second };
+
+        if (excludeIds.count(rid)) continue;
+        if (!includeTypes.count(r.m_RoomType)) continue;
+
+        auto pr{ pointSegmentDistance(r.m_center, a, b) };
+        double d{ pr.first };
+
+        if (d <= radius && d < best_d) {
+            std::string side{ sideOfPoint(r.m_center, a, b) };
+            best = std::make_pair(r, side);
+            best_d = d;
+        }
+    }
+    return best;
+}*/

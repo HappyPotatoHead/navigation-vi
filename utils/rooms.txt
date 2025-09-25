@@ -29,6 +29,8 @@ JUNC_LEFT|Left Junction|CORRIDOR|10|80|4|4
 JUNC_MID|Middle Junction|CORRIDOR|95|65|4|4
 JUNC_RIGHT|Right Junction|CORRIDOR|215|65|4|4
 JUNC_TOP_LEFT|Top Left Junction|CORRIDOR|10|120|4|4
+JUNC_BOTTOM_LEFT|Bottom Left Junction|CORRIDOR|215|40|4|4
+
 
 # ---------- Staffrooms NG-001..NG-014 (reverse order) ----------
 NG-001|Staffroom NG-001|OFFICE|5|122|14|14

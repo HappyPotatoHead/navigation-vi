@@ -7,21 +7,21 @@
 #include <optional>
 #include <functional>
 
-#include "../utils/MapEntities.h"
-#include "../utils/RouteTypes.h"
+#include "./utils/MapEntities.h"
+#include "./utils/RouteTypes.h"
 #include "CoordinateMapSystem.h"
 
-namespace NavigationVI{
-    struct Instruction{
+namespace NavigationVI {
+    struct Instruction {
         std::string text{};
         double distance_m{ 0.0f };
         int steps{ 0 };
         Instruction() = default;
-        Instruction(const std::string& t, double d = 0.0, int s = 0 )
+        Instruction(const std::string& t, double d = 0.0, int s = 0)
             : text(t), distance_m(d), steps(s) {}
     };
 
-    class RouteGuidance{
+    class RouteGuidance {
     public:
         RouteGuidance() = default;
 
@@ -35,21 +35,15 @@ namespace NavigationVI{
                 double landmarkRadius = 20.0,
                 bool anchorEverySegment = true
             );
-        
-        double estimateStrideFromHeightCm(double height_cm) const; 
+
+        double estimateStrideFromHeightCm(double height_cm) const;
     public:
         std::function<void(const std::string&)> onMessage{};
-    
+
     private:
         std::pair<double, double> pointSegmentDistance(const Point& p, const Point& a, const Point& b) const;
         std::string sideOfPoint(const Point& p, const Point& a, const Point& b, double eps = 1e-6) const;
         std::optional<Room> roomAtPoint(const Point& p, const CoordinateMapSystem& map, double tol = 1e-5) const;
-        std::optional<std::pair<Room, std::string>> segmentBestLandmark(
-            const Point& a, const Point& b,
-            const std::set<RoomType>& includeTypes,
-            double radius,
-            const std::set<std::string>& excludeIds,
-            const CoordinateMapSystem& map) const;
         double bearingDeg(const Point& a, const Point& b) const;
         std::string turnPhrase(std::optional<double> prevBearing, double currBearing) const;
         double segmentDistanceM(const Point& a, const Point& b, double unitScale) const;
@@ -59,3 +53,10 @@ namespace NavigationVI{
         std::map<std::string, Room> rooms{};
     };
 }
+
+/*std::optional<std::pair<Room, std::string>> segmentBestLandmark(
+    const Point& a, const Point& b,
+    const std::set<RoomType>& includeTypes,
+    double radius,
+    const std::set<std::string>& excludeIds,
+    const CoordinateMapSystem& map) const;*/

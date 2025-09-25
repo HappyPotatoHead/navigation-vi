@@ -16,6 +16,12 @@ struct TTSItem {
     enum class Type { Nav, Announce } type;
 };
 
+enum class TTSEngine{
+    ESPEAK,
+    SAPI,
+    GENERIC
+};
+
 using namespace NavigationVI;
 
 std::queue<cv::Mat> frameQueue{};
@@ -150,12 +156,16 @@ void AppController::handleDecodedQR(const std::string& content) {
                 if (currentInstructions[i].text.find(content) != std::string::npos) {
                     // Show the NEXT instruction if there is one
                     if (i + 1 < currentInstructions.size()) {
-                        currentStepIndex = i;
+                        currentStepIndex = i+1;
                         currentSuggestion = currentInstructions[currentStepIndex].text;
                     } else {
                         // Already at the last step
                         currentStepIndex = i;
                         currentSuggestion = currentInstructions[i].text;
+                        
+                        std::lock_guard<std::mutex> qlock(ttsMutex);
+                        ttsQueue.push(TTSItem{currentSuggestion, TTSItem::Type::Nav});
+                        ttsCV.notify_one();
                     }
                     break;
                 }
@@ -166,6 +176,7 @@ void AppController::handleDecodedQR(const std::string& content) {
             std::lock_guard<std::mutex> lock(stateMutex);
             newQRScanned = true;
             lastQRScanTime = std::chrono::steady_clock::now();
+            lastQRData = content;
         }
 
         std::lock_guard<std::mutex> lock(ttsMutex);
@@ -174,62 +185,15 @@ void AppController::handleDecodedQR(const std::string& content) {
         if (!lastInstruction.empty()) {
             ttsQueue.push(TTSItem{lastInstruction, TTSItem::Type::Nav});
             ttsCV.notify_one();
+        } 
+        // If we're at the last step and lastInstruction is empty, speak currentSuggestion instead
+        else if (!currentInstructions.empty() && currentStepIndex == currentInstructions.size() - 1) {
+            std::cout << currentSuggestion; 
+            ttsQueue.push(TTSItem{currentSuggestion, TTSItem::Type::Nav});
+            ttsCV.notify_one();
         }
     }
 }
-
-
-
-
-// void AppController::handleDecodedQR(const std::string& content) {
-//     if (content != lastQRData) {
-//         handleNewQR(content);
-//         {
-//             std::lock_guard<std::mutex> lock(stateMutex);
-//             newQRScanned = true;
-//             lastQRScanTime = std::chrono::steady_clock::now();
-//         }
-//         std::lock_guard<std::mutex> lock(ttsMutex);
-//         ttsQueue.push(TTSItem{"QR detected: " + content, TTSItem::Type::Announce});
-//         ttsCV.notify_one();
-//     }
-// }
-
-// void AppController::maybeAdvanceStep() {
-//     std::string nextText{};
-//     bool canAdvance = false;
-
-//     {
-//         std::lock_guard<std::mutex> lock(stateMutex);
-//         if (newQRScanned && m_firstStepAfterQR &&
-//             !currentInstructions.empty() &&
-//             currentStepIndex + 1 < currentInstructions.size()) {
-
-//             auto now = std::chrono::steady_clock::now();
-//             if (!navSpeaking && (now - lastQRScanTime >= std::chrono::seconds(3))) {
-//                 canAdvance = true;
-//                 nextText = currentInstructions[currentStepIndex + 1].text;
-//                 newQRScanned = false;
-//             }
-//         }
-//     }
-
-//     if (canAdvance) {
-//         navSpeaking = true;
-//         {
-//             std::lock_guard<std::mutex> qlock(ttsMutex);
-//             ttsQueue.push(TTSItem{nextText, TTSItem::Type::Nav});
-//             ttsCV.notify_one();
-//         }
-//         {
-//             std::lock_guard<std::mutex> lock(stateMutex);
-//             ++currentStepIndex;
-//             currentSuggestion = nextText;
-//             m_firstStepAfterQR = false; // reset after advancing
-//         }
-//     }
-// }
-
 
 void AppController::maybeAdvanceStep() {
     std::string nextText{};
@@ -403,17 +367,6 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
         }
 
         updateGuidanceOverlay(*nearest, frame.size());
-        // {
-        //     static std::string lastSpokenInstruction;
-        //     std::lock_guard<std::mutex> lock(stateMutex);
-        //     if (!newQRScanned && !lastInstruction.empty() && lastInstruction != lastSpokenInstruction) {
-        //         std::lock_guard<std::mutex> tlock(ttsMutex);
-        //         ttsQueue.push(TTSItem{lastInstruction, TTSItem::Type::Nav});
-        //         ttsCV.notify_one();
-        //         lastSpokenInstruction = lastInstruction;
-        //     }
-        // }
-
 
         if(!isCloseEnough(*nearest)) {
             setInstruction("Move closer to the QR");
@@ -450,36 +403,63 @@ void AppController::detectionWorker(QRDetector& detector, QRReader& reader, Rout
 }
 
 void AppController::run() {
-    std::unordered_map<std::string, QRColour> colourMap{
+    std::vector<std::pair<std::string, QRColour>> colourMap{
         {"red", QRColour::RED},
         { "green", QRColour::GREEN },
         { "blue", QRColour::BLUE },
         { "none", QRColour::NONE }
     };
+    int colourChoice{};
 
-    std::string colourChoice{};
-    std::cout << "Enter target QR colour (red/green/blue/none): ";
-    std::cin >> colourChoice;
-    std::transform(
-        colourChoice.begin(),
-        colourChoice.end(),
-        colourChoice.begin(),
-        [](unsigned char c) {
-            return std::tolower(c);
-        });
+    // Start workers
+    std::thread ttsThread(&AppController::ttsWorker, this, std::ref(tts));
+    std::thread detectThread(&AppController::detectionWorker, this, std::ref(detector), std::ref(reader), std::ref(guider));
 
-    QRColour targetColour{ QRColour::NONE };
-    if (colourMap.count(colourChoice)) targetColour = colourMap[colourChoice];
+    {
+        std::lock_guard<std::mutex> lock(ttsMutex);
+        std::string menuSpeech{ "Please choose a target QR colour" + TextToSpeech::platformPause(800) + " ." };
+        for (size_t i{ 0 }; i < colourMap.size(); ++i) 
+            menuSpeech += "Press " + std::to_string(i + 1) + " for " + colourMap[i].first+ TextToSpeech::platformPause(600)  + " ." ;
+        ttsQueue.push(TTSItem{menuSpeech, TTSItem::Type::Announce});
+        ttsCV.notify_one();
+    }
 
-    std::cout << "Enter destination room ID (e.g., N008): ";
-    std::cin >> destinationId;
-    std::transform(
-        destinationId.begin(),
-        destinationId.end(),
-        destinationId.begin(),
-        [](unsigned char c) {
-            return std::toupper(c);
-        });
+    while(true){
+        std::cout << "Enter target QR colour:\n";
+        for (size_t i {0}; i < colourMap.size(); i++) 
+            std::cout << " " << (i+1) << ". " << colourMap[i].first << "\n";
+        std::cout << "Enter choice: ";
+
+        if (!(std::cin >> colourChoice)){
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            {
+                std::lock_guard<std::mutex> lock(ttsMutex);
+                ttsQueue.push(TTSItem{"Invalid input. Please enter a number", TTSItem::Type::Announce});
+                ttsCV.notify_one();  
+            }
+            continue;
+        }
+        // std::cin >> colourChoice;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        if (colourChoice >= 1 && colourChoice <= (int)colourMap.size()) break;
+        else {
+            {
+                std::lock_guard<std::mutex> lock(ttsMutex);
+                ttsQueue.push(TTSItem{"Invalid choice. Please try again.", TTSItem::Type::Announce});
+                ttsCV.notify_one();
+            }
+        }
+    }
+
+    QRColour targetColour{ colourMap[colourChoice -1].second };
+    std::string chosenColourName{ colourMap[ colourChoice -1]. first };
+    std::cout << "You chose colour: " << chosenColourName << "\n";
+    {
+        std::lock_guard<std::mutex> lock(ttsMutex);
+        ttsQueue.push(TTSItem{"You chose colour " + chosenColourName, TTSItem::Type::Announce});
+        ttsCV.notify_one();
+    }
 
     if (!mapSystem.loadRoomsFromFile("utils/rooms.txt") ||
         !mapSystem.loadConnectionsFromFile("utils/connections.txt")) {
@@ -487,17 +467,51 @@ void AppController::run() {
         return;
     }
 
-    auto resolvedDest{ mapSystem.resolveRoomId(destinationId) };
-    if (resolvedDest) {
-        destinationId = resolvedDest.value();
-        destinationName = mapSystem.getRooms().at(destinationId).m_name;
+
+    // std::string destinationId{};
+    while(true){
+        {
+            std::lock_guard<std::mutex> lock(ttsMutex);
+            ttsQueue.push(TTSItem{"Enter destination room ID", TTSItem::Type::Announce});
+            ttsCV.notify_one();
+        }
+        std::cout << "Enter destination room ID: ";
+        std::cin >> destinationId;
+
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        
+        std::transform(
+            destinationId.begin(),
+            destinationId.end(),
+            destinationId.begin(),
+            [](unsigned char c) {
+                return std::toupper(c);
+            });
+        
+        auto resolvedDest{ mapSystem.resolveRoomId(destinationId) };
+        if (resolvedDest) {
+            destinationId = resolvedDest.value();
+            destinationName = mapSystem.getRooms().at(destinationId).m_name;
+            break;
+        } else {
+            {
+                std::lock_guard<std::mutex> lock(ttsMutex);
+                ttsQueue.push(TTSItem{"Destination not found, please try again", TTSItem::Type::Announce});
+                ttsCV.notify_one();
+            }
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(ttsMutex);
+        ttsQueue.push(TTSItem{"You chose destination "+ destinationId, TTSItem::Type::Announce});
+        ttsCV.notify_one();
     }
 
-    QRColour uiTargetColour{ QRColour::NONE };
-    if(colourMap.count(colourChoice)) uiTargetColour = colourMap[colourChoice];
+    // QRColour uiTargetColour{ targetColour };
+    // if(colourMap.count(colourChoice)) uiTargetColour = colourMap[colourChoice];
 
-    detector.setTargetColour(QRColour::NONE);
-    // detector.setTargetColour(targetColour);
+    // detector.setTargetColour(QRColour::NONE);
+    detector.setTargetColour(targetColour);
     detector.setMinArea(1000);
     detector.setAspectRatioTolerance(0.8f, 1.25f);
     detector.setBoundingBoxPadding(150);
@@ -505,6 +519,7 @@ void AppController::run() {
     detector.setColourVerificationEnabled(true);
     detector.setDetectionThrottle(2,1000);
 
+    // If you're on linux
     std::string pipeline =
     "v4l2src device=/dev/video0 ! "
     "image/jpeg, width=1280, height=720, framerate=30/1 ! "
@@ -512,17 +527,12 @@ void AppController::run() {
 
     cv::VideoCapture cap(pipeline, cv::CAP_GSTREAMER);
 
+    // If you're not on linux
+    // cv::VideoCapture cap(0);
     if (!cap.isOpened()) {
         std::cerr << "Failed to open camera\n";
         return;
     }
-
-    std::cout << "Width: "  << cap.get(cv::CAP_PROP_FRAME_WIDTH)
-          << " Height: " << cap.get(cv::CAP_PROP_FRAME_HEIGHT) << '\n';
-
-    // Start workers
-    std::thread ttsThread(&AppController::ttsWorker, this, std::ref(tts));
-    std::thread detectThread(&AppController::detectionWorker, this, std::ref(detector), std::ref(reader), std::ref(guider));
 
     cv::Mat frame{};
 
@@ -532,11 +542,11 @@ void AppController::run() {
 
     while (true){
         if (!cap.read(frame) || frame.empty()) break;
-        //cv::flip(frame, frame, 1);
         queueFrame(frame);
         drawOverlay(frame);
         maybeAdvanceStep();
-        showComposite(frame, uiTargetColour);
+        showComposite(frame, targetColour);
+        // showComposite(frame, uiTargetColour);
 
         if(checkForExitKey()) break;
     }
@@ -545,3 +555,66 @@ void AppController::run() {
     detectThread.join();
     ttsThread.join();
 }
+
+
+// void AppController::handleDecodedQR(const std::string& content) {
+//     if (content != lastQRData) {
+//         handleNewQR(content);
+//         {
+//             std::lock_guard<std::mutex> lock(stateMutex);
+//             newQRScanned = true;
+//             lastQRScanTime = std::chrono::steady_clock::now();
+//         }
+//         std::lock_guard<std::mutex> lock(ttsMutex);
+//         ttsQueue.push(TTSItem{"QR detected: " + content, TTSItem::Type::Announce});
+//         ttsCV.notify_one();
+//     }
+// }
+
+// void AppController::maybeAdvanceStep() {
+//     std::string nextText{};
+//     bool canAdvance = false;
+
+//     {
+//         std::lock_guard<std::mutex> lock(stateMutex);
+//         if (newQRScanned && m_firstStepAfterQR &&
+//             !currentInstructions.empty() &&
+//             currentStepIndex + 1 < currentInstructions.size()) {
+
+//             auto now = std::chrono::steady_clock::now();
+//             if (!navSpeaking && (now - lastQRScanTime >= std::chrono::seconds(3))) {
+//                 canAdvance = true;
+//                 nextText = currentInstructions[currentStepIndex + 1].text;
+//                 newQRScanned = false;
+//             }
+//         }
+//     }
+
+//     if (canAdvance) {
+//         navSpeaking = true;
+//         {
+//             std::lock_guard<std::mutex> qlock(ttsMutex);
+//             ttsQueue.push(TTSItem{nextText, TTSItem::Type::Nav});
+//             ttsCV.notify_one();
+//         }
+//         {
+//             std::lock_guard<std::mutex> lock(stateMutex);
+//             ++currentStepIndex;
+//             currentSuggestion = nextText;
+//             m_firstStepAfterQR = false; // reset after advancing
+//         }
+//     }
+// }
+
+
+// DetectionWorker
+        // {
+        //     static std::string lastSpokenInstruction;
+        //     std::lock_guard<std::mutex> lock(stateMutex);
+        //     if (!newQRScanned && !lastInstruction.empty() && lastInstruction != lastSpokenInstruction) {
+        //         std::lock_guard<std::mutex> tlock(ttsMutex);
+        //         ttsQueue.push(TTSItem{lastInstruction, TTSItem::Type::Nav});
+        //         ttsCV.notify_one();
+        //         lastSpokenInstruction = lastInstruction;
+        //     }
+        // }
